@@ -1,0 +1,988 @@
+﻿
+// 일반 메세지 팝업
+// var popSet = new $.fn.modalPopGeneration({ type: 'message', code: 'COM001', lang:'KR', btns: true, btnParam1: false, btnParam2: true, elem:$(this) });
+// {type: 'message', code: '메세지 코드', lang:'언어', btns:버튼여부(true,false), btnParam1:취소버튼 생성(true,false), btnParam2:확인버튼 생성(true,false), elem:$(this) - 클릭버튼 포커스 롤백}
+
+// 컨폼 메세지 팝업
+// var popSet = new $.fn.modalPopGeneration({ type: 'confirm', code: 'COM001', lang:'KR', btns: true, btnParam1: false, btnParam2: true, elem:$(this) });
+// {type: 'confirm', code: '메세지 코드', lang:'언어', btns:버튼여부(true,false), btnParam1:취소버튼 생성(true,false), btnParam2:확인버튼 생성(true,false), elem:$(this) - 클릭버튼 포커스 롤백, closed: 취소버튼 클래스, confir: 확인버튼 클래스, execution: execution(실행함수명)}
+
+// html 파싱 팝업
+// var popSet = new $.fn.modalPopGeneration({ type: 'load', url:'html 위치 url', btns: true, btnParam1: false, btnParam2: true, elem:$(this) });
+// {type: 'load', btns:버튼여부(true,false), btnParam1:취소버튼 생성(true,false), btnParam2:확인버튼 생성(true,false), elem:$(this) - 클릭버튼 포커스 롤백}
+
+// 서버 메세지 팝업
+// var popSet = new $.fn.modalPopGeneration({ type: 'server', lang:'KR', btns: true, btnParam1: false, btnParam2: true, elem:$(this) });
+// {type: 'confirm', lang:'언어', btns:버튼여부(true,false), btnParam1:취소버튼 생성(true,false), btnParam2:확인버튼 생성(true,false), elem:$(this) - 클릭버튼 포커스 롤백, closed: 취소버튼 클래스, confir: 확인버튼 클래스, execution: execution(실행함수명)}
+
+// elem:$(this) 속성은 필수로 넣어줘야 포커스 이동이 가능해짐
+var ReturnUrl = '';
+var Parameter = '';
+
+$(function () {
+    /************************************************************************************************* 
+     *  Modal 팝업
+    ************************************************************************************************/
+    $.fn.modalPopGeneration = function (option) {
+        // 2016.05.03 장착법
+        var S = $.extend({ target: 'form', type: 'load', code: 't0101', lang: 'LL', url: CinemaServerDomain + '/LCHS/Contens/Cinema-Mall/cinema-select-popup.aspx', btns: true, btnParam1: false, btnParam2: false, elem: $(this), closed: '.pop_btn_close', confir: '.btnc_confirm', cancel: '.btnc_default', execution: null, execution2: null, executionRemove: null, 'execution_info': '', 'execution2_info': '', serverTitle: '', serverMessage: '', ReturnUrl: '', Parameter: '' }, option);
+
+        this.target = $(S.target);
+        this.type = S.type;
+        this.title;
+        this.cintent;
+        this.urlTarget = S.urlTarget;
+        this.url = S.url;
+        this.elem = S.elem;
+        this.closed = S.closed;
+        this.confir = S.confir;
+        this.cancel = S.cancel;
+        this.execution = S.execution;
+        this.execution2 = S.execution2;
+        // 2016.05.03 장착법
+        this.executionRemove = S.executionRemove;
+        this.execution_info = S.execution_info;
+        this.execution2_info = S.execution2_info;
+        this.serverTitle = S.serverTitle;
+        this.serverMessage = S.serverMessage;
+
+        ReturnUrl = S.ReturnUrl;
+        Parameter = S.Parameter;
+
+        this.height = $(window).height();
+
+        this.code = S.code;
+        this.lang = S.lang;
+
+        this.modalTotal = this.target.find('.pop_wrap').length;
+
+        this.target.append('<div class="pop_wrap modal' + this.modalTotal + '" style="position:fixed; z-index:999' + this.modalTotal + '; height:' + this.height + 'px"></div>');
+
+        this.popWrap = this.target.find('.modal' + this.modalTotal);
+
+        if (this.type != 'load') {
+            this.popWrap.append('<div class="pop_wrap_inner pop_cbox"></div>');
+
+            this.popContent = this.popWrap.find('.pop_wrap_inner');
+        };
+
+        this.btns = S.btns;
+        this.btnParam1 = S.btnParam1;
+        this.btnParam2 = S.btnParam2;
+
+        this.init();
+
+        // 2016.05.03 장착법
+        if (this.type == 'load') {
+            $(this.popWrap).attr('tabindex', '0').show().focus();
+        }
+    };
+
+    $.fn.modalPopGeneration.prototype = {
+        init: function () {
+            var T = this;
+
+            // Document scroll 금지
+            //$('html, body').on('mousewheel.disableScroll DOMMouseScroll.disableScroll touchmove.disableScroll', function (e) {
+            //    e.preventDefault();
+            //    return;
+            //});
+
+            $('html, body').on('keydown.disableScroll', function (e) {
+
+                //var eventKeyArray = [32, 33, 34, 35, 36, 37, 38, 39, 40];
+                // 2016.05.11 웹접근성
+                var eventKeyArray = [33, 34, 35, 36, 37, 39];//space bar 해제(32), Keyboard Up(40), Down(38) 해제
+                for (var i = 0; i < eventKeyArray.length; i++) {
+                    if (e.keyCode === eventKeyArray[i]) {
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            });
+
+            switch (this.type) { // 팝업 생성
+                case 'message': // 메세지 팝업 생성
+                    T.popContent.append('<div class="pop_header"><strong class="pop_tit"></strong></div>');
+                    T.popContent.append('<div class="pop_body"><div class="pop_scroll"><p class="point_txt"></p></div></div>');
+                    if (T.btns) {
+                        var html = '<div class="btn_box btn_cbox">';
+                        if (T.btnParam1) {
+                            if (T.lang == 'EN') {
+                                html += '<a href="javascript:void(0);" class="btnc_default">Cancel</a>';
+                            } else {
+                                html += '<a href="javascript:void(0);" class="btnc_default">Hủy bỏ<!--취소--></a>';
+                            };
+                        };
+                        if (T.btnParam2) {
+                            if (T.lang == 'EN') {
+                                html += '<a href="javascript:void(0);" class="btnc_confirm">Check</a>';
+                            } else {
+                                html += '<a href="javascript:void(0);" class="btnc_confirm">Kiểm tra<!--확인--></a>';
+                            };
+                        };
+                        html += '</div>';
+                        T.popContent.find('.pop_scroll').append(html);
+                    };
+                    T.popContent.find('.pop_scroll').append('<a href="javascript:void(0)" class="pop_btn_close pop_close"><img src="/LCHS/Image/Btn/btn_pop_close01.gif" alt="Đóng"></a>'); // 닫기
+
+                    T.title = T.popWrap.find('.pop_tit');
+                    T.cintent = T.popWrap.find('.point_txt');
+
+                    T.popContent.css({ 'margin-top': -(T.popContent.outerHeight() / 2), 'margin-left': -(T.popContent.outerWidth() / 2) });
+
+                    T.messageLayer();
+
+                    break;
+                case 'load': // html 팝업 생성
+                    T.popWrap.load(T.url, function (response, status) {
+                        if (status == 'success') {
+                            T.popWrap.find('.pop_wrap_inner').css({'visibility':'hidden', 'margin-left': -(T.popWrap.find('.pop_wrap_inner').outerWidth() / 2) });
+                        };
+
+                        T.event();
+                    });
+                    break;
+                case 'confirm': // 메세지 팝업 생성
+                    T.popContent.append('<div class="pop_header"><strong class="pop_tit"></strong></div>');
+                    T.popContent.append('<div class="pop_body"><div class="pop_scroll"><p class="point_txt"></p></div></div>');
+                    if (T.btns) {
+                        var html = '<div class="btn_box btn_cbox">';
+                        if (T.btnParam1) {
+                            if (T.lang == 'EN') {
+                                html += '<a href="javascript:void(0);" class="btnc_default">Cancel</a>';
+                            } else {
+                                html += '<a href="javascript:void(0);" class="btnc_default">Hủy bỏ<!--취소--></a>';
+                            };
+                        };
+                        if (T.btnParam2) {
+                            if (T.lang == 'EN') {
+                                html += '<a href="javascript:void(0);" class="btnc_confirm">Check</a>';
+                            } 
+                            else if  (T.lang == 'CS') {
+                                html += '<a href="javascript:void(0);" class="btnc_confirm">Tiếp tục</a>';
+                            }
+                            else {
+                                html += '<a href="javascript:void(0);" class="btnc_confirm">Kiểm tra<!--확인--></a>';
+                            };
+                        };
+                        html += '</div>';
+                        T.popContent.find('.pop_scroll').append(html);
+                    };
+                    T.popContent.find('.pop_scroll').append('<a href="javascript:void(0)" class="pop_btn_close pop_close"><img src="/LCHS/Image/Btn/btn_pop_close01.gif" alt="Đóng"></a>'); // 닫기
+
+                    T.title = T.popWrap.find('.pop_tit');
+                    T.cintent = T.popWrap.find('.point_txt');
+
+                    T.popContent.css({ 'margin-top': -(T.popContent.outerHeight() / 2), 'margin-left': -(T.popContent.outerWidth() / 2) });
+
+                    // 2016.05.26 수정
+                    if (T.serverMessage != '') {
+                        T.popWrap.find('.pop_tit').text(T.serverTitle);
+                        T.popWrap.find('.point_txt').html(T.serverMessage);
+                        this.event();
+                    }
+                    else {
+                        T.messageLayer();
+                    }
+
+                    break;
+                case 'server':
+                    T.popContent.append('<div class="pop_header"><strong class="pop_tit"></strong></div>');
+                    T.popContent.append('<div class="pop_body"><div class="pop_scroll"><p class="point_txt"></p></div></div>');
+                    if (T.btns) {
+                        var html = '<div class="btn_box btn_cbox">';
+                        if (T.btnParam1) {
+                            if (T.lang == 'EN') {
+                                html += '<a href="javascript:void(0);" class="btnc_default">Cancel</a>';
+                            } else {
+                                html += '<a href="javascript:void(0);" class="btnc_default">Hủy bỏ<!--취소--></a>';
+                            };
+                        };
+                        if (T.btnParam2) {
+                            if (T.lang == 'EN') {
+                                html += '<a href="javascript:void(0);" class="btnc_confirm">Check</a>';
+                            } else {
+                                html += '<a href="javascript:void(0);" class="btnc_confirm">Kiểm tra<!--확인--></a>';
+                            };
+                        };
+                        html += '</div>';
+                        T.popContent.find('.pop_scroll').append(html);
+                    };
+                    T.popContent.find('.pop_scroll').append('<a href="javascript:void(0)" class="pop_btn_close pop_close"><img src="/LCHS/Image/Btn/btn_pop_close01.gif" alt="Đóng"></a>'); // 닫기
+
+                    T.popWrap.find('.pop_tit').text(T.serverTitle);
+                    //T.popWrap.find('.point_txt').text(T.serverMessage);
+                    T.popWrap.find('.point_txt').html(T.serverMessage);
+
+                    T.popContent.css({ 'margin-top': -(T.popContent.outerHeight() / 2), 'margin-left': -(T.popContent.outerWidth() / 2) });
+
+                    T.event();
+                    break;
+            };
+
+            $(window).resize(function () { // 팝업 위치 조정
+                T.popWrap.css({ 'height': $(window).height() });
+            });
+        },
+
+        messageLayer: function () { // 메세지 출력
+            var codeText = this.messageCodeSelector(this.code, this.lang);
+            this.title.html(codeText.Title);
+            this.cintent.html(codeText.Message);
+
+            this.event();
+        },
+
+        event: function () { // 버튼 이벤트
+            var T = this;
+
+            T.popWrap.find('a').first().focus(); // 포커스 이동 이벤트
+
+            T.popWrap.find(T.closed).on('click', function () { // 닫기버튼 이벤트
+                
+                //if (T.type == 'confirm') {	
+                //	if (T.execution != null) {
+                //		T.execution(T.execution_info);
+                //	}
+                //}
+                T.remove();
+            });
+
+            if (T.type == 'message') {
+                T.popWrap.find(T.confir).on('click', function () { // 확인버튼 이벤트
+                    T.remove();
+                });
+            };
+
+            if (T.type == 'confirm') {
+
+                T.popWrap.find(T.confir).on('click', function () { // 확인버튼 이벤트
+                    if (T.execution != null) {
+                        T.execution(T.execution_info);
+                    }
+                    T.remove();
+                });
+
+                T.popWrap.find(T.cancel).on('click', function () {
+                    if (T.execution2 != null) {
+                        T.execution2(T.execution2_info);
+                    }
+                    T.remove();
+                });
+
+            } else if (T.type == 'server') {
+                T.popWrap.find(T.confir).on('click', function () { // 확인버튼 이벤트
+                    T.remove();
+                });
+            } else {
+                T.popWrap.find(T.cancel).on('click', function () {
+                    T.remove();
+                });
+            };
+
+            if (T.type == 'load') {
+                setTimeout(function () {
+                    var insSum = 0;
+                    var winHeight = $(window).height();
+                    var wrapHeight = T.popWrap.find('.pop_wrap_inner').outerHeight();
+                    var popHeight = T.popWrap.find('.pop_scroll').height();
+                    var reHeight = wrapHeight - popHeight;
+
+                    if (T.popWrap.find('div').hasClass('inner_scroll')) {
+                        popHeight = T.popWrap.find('.inner_scroll').height();
+                        reHeight = wrapHeight - popHeight;
+                    };
+
+                    var insInterval = setInterval(function () {
+                        if (insSum > 5) {
+                            T.popWrap.find('.pop_wrap_inner').css({ 'visibility': 'visible' });
+                        };
+                        if (insSum > 20) {
+                            clearInterval(insInterval);
+                        };
+
+                        if (winHeight < wrapHeight) {
+                            T.popWrap.find('.pop_wrap_inner').css({ 'top': 0, 'margin-top': 0, 'height': winHeight });
+
+                            if (T.popWrap.find('div').hasClass('inner_scroll')) {
+                                T.popWrap.find('.inner_scroll').css({ 'height': winHeight - reHeight });
+                            } else {
+                                T.popWrap.find('.pop_scroll').css({ 'height': winHeight - reHeight });
+                            };
+                        } else {
+                            T.popWrap.find('.pop_wrap_inner').css({ 'margin-top': -(wrapHeight / 2) });
+                        };
+                        insSum++;
+                    }, 50);
+
+                }, 1000);//20170228 sunho 500 에서 1000 으로 변경 Dom tree 그려지기 전에 보여지는 관계로 
+            };
+        },
+
+        remove: function () {
+            // Document scroll 정상화
+            //$('html, body').off();
+            this.elem.focus();
+
+            // 2016.05.03 장착법
+            if (this.executionRemove != null) {
+                this.executionRemove();
+            }
+
+            this.popWrap.remove();
+        },
+
+        messageCodeSelector: function (code, lang) { // 메세지 셀렉터 이벤트
+            return $.fn.messageChanger(code, lang);
+        },
+    };
+
+    $.fn.messageChanger = function (code, lang) {
+        var messageInfo = MessageLibrary[code];
+        if (messageInfo == undefined) {
+            return {
+                Title: "Lỗi", // 에러
+                Message: "Đã xảy ra sự cố với thư." // 메시지에 문제가 있습니다.
+            };
+        } else if (lang == "LL") {
+            return {
+                Title: messageInfo.TitleVN,
+                Message: messageInfo.MessageVN
+            };
+        } else if (lang == "EN") {
+            return {
+                Title: messageInfo.TitleEN,
+                Message: messageInfo.MessageEN
+            };
+        };
+    }
+
+    $.fn.getMessageTitle = function (code, lang) {
+        return $.fn.messageChanger(code, lang).Title;
+    }
+});
+
+//영문 변환
+//영문 변환해야할 문자열 태그 class명 마지막에 Lang-코드 추가해야함
+ConvertLanguage = function () {
+    $.each($("[class*='Lang-']"), function (i) {
+        var cssName = $(this).attr("class")
+        //var arrCssName = cssName.split("lng-")
+        var sNo = cssName.indexOf("Lang-")
+        var cssName2 = cssName.substring(sNo + 5, cssName.length)
+        var eNo = cssName2.indexOf(" ")
+        var code
+
+        if (eNo == -1) {
+            code = cssName2.substring(0, cssName2.length)
+        }
+        else {
+            code = cssName2.substring(0, eNo)
+        }
+
+        var lang = new $.fn.messageChanger(code, Language);
+        //영문으로 변환하기
+        if (lang.Title != "Lỗi") //에러
+            $(this).html(lang.Title);
+
+        if (this.tagName == "INPUT") {
+            $(this).val(lang.Title);
+        }
+    })
+}
+
+// 비회원 로그인 접근시 공통 메세지
+var nonMemberMessage = "<br>Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội."; // 회원 또는 소셜로그인 후 이용해 주십시오.
+
+var MessageLibrary = { // 메세지 라이브러리
+    /*
+        공통 메시지: COM0000
+            공지형(1????,Validation..), 알림형(00??, 저장, 수정..), 오류형(05??)
+        버튼 메시지: BTN0000
+            저장, 수정, 취소, 확인
+        라벨(다국어): LBL0000
+            예매(0???), 그 외(1/2~???)
+    */
+    // ###### 공통 메시지 시작 ######
+
+    "COM1000": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "최대 1개까지 선택하실 수 있습니다.", MessageVN: "Bạn có thể chọn tối đa hai.", MessageEN: "Up to one can be selected." },
+    "COM1001": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "최대 2개까지 선택하실 수 있습니다.", MessageVN: "Bạn có thể chọn tối đa hai.", MessageEN: "Up to two can be selected." },
+    "COM1002": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "상품정보가 없습니다.", MessageVN: "Không có thông tin sản phẩm.", MessageEN: "There is no product information." },
+    "COM2000": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "인원은 최대 8명까지 선택할 수 있습니다.", MessageVN: "Bạn có thể chọn tối đa 8 người.", MessageEN: "Available number of audiences (people) is maximum 8." },
+    "COM2100": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "선택하신 좌석이 이미 예매되었습니다.", MessageVN: "Ghế đã chọn đã được đặt trước.", MessageEN: "Select your seats are already booking." },
+    "COM2101": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "인원을 선택해 주십시오.", MessageVN: "Vui lòng chọn số ghế cần mua", MessageEN: "Please select the personnel." },
+    "COM2102": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "좌석을 선택해 주십시오.", MessageVN: "Vui lòng chọn chỗ ngồi.", MessageEN: "Please select your seats." },
+    "COM2103": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "만 12세 미만의 고객님(영, 유아 포함)은 반드시 부모님 또는 성인 보호자의 동반하에 관람이 가능합니다.", MessageVN: "Khách dưới 12 tuổi (bao gồm cả trẻ sơ sinh và trẻ nhỏ) phải đi kèm với cha mẹ hoặc người giám hộ của người lớn.", MessageEN: "Audiences under 12 years old in full age (including baby and kid) have to be accompanied with parents or adult guardians for watching." },
+    "COM2104": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "만 15세 미만의 고객님(영, 유아 포함)은 반드시 부모님 또는 성인 보호자의 동반하에 관람이 가능합니다.", MessageVN: "Khách dưới 15 tuổi (bao gồm cả trẻ sơ sinh và trẻ nhỏ) phải đi kèm với cha mẹ hoặc người giám hộ của người lớn.", MessageEN: "Audiences under 15 years old in full age (including baby and kid) have to be accompanied with parents or adult." },
+    "COM2105": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "만 18세 미만의 고객님(영, 유아 포함)은 반드시 부모님 또는 보호자의 동반하여도 관람이 불가합니다. 만 18세 이상이지만 초/중/고 재학중 고객님은 영화관람이 불가합니다. 영화 관람 시, 신분증을 지참하여 주시기 바랍니다.", MessageVN: "Những khách dưới 18 tuổi (bao gồm cả trẻ sơ sinh và trẻ sơ sinh) không được phép đi cùng với cha mẹ hoặc người giám hộ của mình. Bạn trên 18 tuổi nhưng bạn không được phép xem phim khi đang học tiểu học / trung học / trung học. Vui lòng mang theo thẻ ID của bạn khi bạn xem phim.", MessageEN: "Audiences under 18 years old in full age (including baby and kid) cannot watch even when accompanied by parents or guardians. Audiences who are over 18 years old in full age but attending elementary, middle or high school cannot watch the movie. For entrance, please bring your ID." },
+    "COM2106": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "반드시 복지카드를 소지하신 후 입장해주세요.<br>미지참 시 입장이 제한됩니다.<br>(장애 1~3등급: 동반 1인 포함 할인 가능<br>/ 장애 4~6등급: 본인에 한하여 할인 적용)", MessageVN: "Vui lòng đảm bảo mang theo thẻ phúc lợi của bạn trước khi vào. Xin lưu ý rằng việc nhập học có giới hạn (Khuyết tật 1 ~ 3: Giảm giá với 1 người đi cùng / Người khuyết tật 4 ~ 6:", MessageEN: "please bring your welfare card and visit theater information desk.<br />(1~3 level : can have discount for one more accompanier / <br />4~6 level : can have discount for his ticket.)" },
+    "COM2107": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "반드시 본인의 신분증(만 55세 이상)을<br>소지하신 후 입장해주세요.<br>미지참 시 입장이 제한됩니다.", MessageVN: "Vui lòng đảm bảo mang theo CMND (55 tuổi trở lên) cùng với bạn.", MessageEN: "Please be sure to bring your ID card (55 years old or older) with you." },
+    "COM2108": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "티켓발권을 위하여 반드시 국가유공자증을 소지하신 후 영화관 인포메이션 데스크로 방문하여 주시기 바랍니다.", MessageVN: "Hãy chắc chắn mang theo giấy chứng nhận quốc gia của bạn để phát hành vé và ghé qua bàn thông tin tại rạp chiếu phim.", MessageEN: "For ticket printing, please bring your ID card and visit theater information desk." },
+    "COM1003": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "MY영화관은 최대 3개까지 등록하실 수 있습니다.", MessageVN: "Bạn có thể đăng ký tối đa ba rạp MY.", MessageEN: "Up to three can be selected." },
+    "COM1004": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "아이디를 입력해 주십시오.", MessageVN: "Vui lòng nhập ID của bạn.", MessageEN: "Please enter your ID." },
+    "COM1005": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비밀번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập mật khẩu của bạn.", MessageEN: "Please enter your password." },
+    "COM1005-1": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "고유번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số duy nhất của bạn.", MessageEN: "Please enter your password." },
+    "COM1006": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "예매 확인/취소 또는 예매를 선택해 주십시오.", MessageVN: "Vui lòng xác nhận / hủy đặt phòng hoặc đặt trước.", MessageEN: "Please confirm / cancel reservation or advance booking." },
+    "COM1007": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "개인정보 취급에 대한  동의를 해야 비회원 로그인 가능합니다.", MessageVN: "Bạn cần đồng ý với việc xử lý thông tin cá nhân để bạn có thể đăng nhập với tư cách không phải là thành viên.", MessageEN: "You need to agree to the handling of your personal information so that you can log in as a non-member." },
+    "COM1008": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이름을 입력해 주십시오.", MessageVN: "Vui lòng nhập tên.", MessageEN: "Please enter a name." },
+    "COM1009": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "생년월일을 입력해 주십시오.", MessageVN: "Vui lòng nhập ngày sinh của bạn.", MessageEN: "Please enter your date of birth." },
+    "COM1010": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "휴대폰 번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số điện thoại di động của bạn.", MessageEN: "Please enter your mobile phone number." },
+    "COM1011": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "아이디 또는 비밀번호가 맞지 않습니다.", MessageVN: "Tên người dùng hoặc mật khẩu không đúng.", MessageEN: "Username or password is incorrect." },
+    "COM1012": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "생년월일은 6자리로 입력해 주십시오.", MessageVN: "Vui lòng nhập ngày sinh của bạn bằng 6 chữ số.", MessageEN: "Please enter your birth date in 6 digits." },
+    "COM1013": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "휴대폰 번호는 4자리로 입력해 주십시오.", MessageVN: "Nhập số điện thoại di động của bạn bằng 4 chữ số.", MessageEN: "Enter your mobile phone number in 4 digits." },
+    "COM1014": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비밀번호는 4자리로 입력해 주십시오.", MessageVN: "Vui lòng nhập mật khẩu của bạn bằng 4 chữ số.", MessageEN: "Please enter your password in 4 digits." },
+    "COM1015": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이름은 한글, 영문만 입력해 주십시오.", MessageVN: "Vui lòng chỉ nhập tên tiếng Hàn và tiếng Anh.", MessageEN: "Please enter only Korean and English names." },
+    "COM1016": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "올바른 휴대폰 번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số điện thoại di động hợp lệ.", MessageEN: "Please enter a valid mobile phone number." },
+    "COM1017": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "올바른 비밀번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập mật khẩu chính xác.", MessageEN: "Please enter the correct password." },
+    "COM1017-1": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "올바른 고유번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số duy nhất hợp lệ.", MessageEN: "Please enter a valid unique number." },
+    "COM1018": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비밀번호가 일치하지 않습니다.", MessageVN: "Mật khẩu không khớp.", MessageEN: "Passwords do not match." },
+    "COM1019": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "숫자만 입력 가능합니다.", MessageVN: "Chỉ có thể nhập số.", MessageEN: "Only numbers can be entered." },
+    "COM1021": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "검색어를 입력하세요.", MessageVN: "Vui lòng nhập cụm từ tìm kiếm.", MessageEN: "Please enter your search term." },
+    "COM1022": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "검색할 항목을 선택하세요.", MessageVN: "Vui lòng chọn một mục để tìm kiếm.", MessageEN: "Please select an item to search." },
+    "COM1023": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "거래번호를 입력하세요.", MessageVN: "Vui lòng nhập số giao dịch.", MessageEN: "Please enter a transaction number." },
+    "COM1023_2": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "예매번호를 입력하세요.", MessageVN: "Vui lòng nhập số trước.", MessageEN: "Please enter the advance number." },
+    "COM1024": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "나의 관람영화 등록이 완료되었습니다.", MessageVN: "Đăng ký xem phim của tôi đã hoàn tất.", MessageEN: "My viewing movie registration is completed." },
+    "COM1025": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "리뷰를 작성해 주십시오.", MessageVN: "Vui lòng viết bình luận.", MessageEN: "Please write a review." },
+    "COM1026": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "평점을 입력해 주십시오.", MessageVN: "Vui lòng nhập xếp hạng của bạn.", MessageEN: "Please enter your rating." },
+    "COM1027": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "고객님의 평점 및 영화 리뷰 작성이 완료되었습니다.", MessageVN: "Đánh giá xếp hạng và phim của bạn đã hoàn tất.", MessageEN: "Your rating and movie reviews are complete." },
+    "COM1028": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "고객님의 평점 및 영화 리뷰 수정이 완료되었습니다.", MessageVN: "Xếp hạng và đánh giá phim của bạn đã được hoàn thành.", MessageEN: "Your rating and movie review has been completed." },
+    "COM1029": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이미 작성된 글이 있습니다.", MessageVN: "Đã có các bài viết đã viết.", MessageEN: "There are already written posts." },
+    "COM1030": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "고객님의 리뷰 삭제가 완료되었습니다.", MessageVN: "Bài đánh giá của bạn đã bị xóa.", MessageEN: "Your review has been deleted." },
+    "COM1031": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "해당 영화 관람내역을 삭제 하시겠습니까?", MessageVN: "Bạn có chắc chắn muốn xóa Phim đã xem không?", MessageEN: "Are you sure you want to delete the movie history?" },
+    "COM1032": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람 내역 삭제가 완료되었습니다.", MessageVN: "Đã xóa lịch sử xem đã hoàn tất.", MessageEN: "Deleted viewing history is complete." },
+    "COM1033": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "추천이 완료되었습니다.", MessageVN: "Đề xuất của bạn đã hoàn tất.", MessageEN: "Your recommendation is complete." },
+    "COM1034": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "검색기간을 확인해 주십시오.", MessageVN: "Vui lòng kiểm tra thời gian tìm kiếm.", MessageEN: "Please check the search period." },
+    "COM1035": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "선택된 항목이 없습니다.", MessageVN: "Không có mục nào được chọn.", MessageEN: "No items selected." },
+    "COM1036": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "해당 관람권 내역을 삭제 하시겠습니까?", MessageVN: "Bạn có chắc chắn muốn xóa vé không?", MessageEN: "Are you sure you want to delete the ticket?" },
+    "COM1037": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람권 내역 삭제가 완료되었습니다.", MessageVN: "Bạn đã xóa vé thành công.", MessageEN: "You have successfully deleted your tickets." },
+    "COM1038": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "해당 할인권 내역을 삭제 하시겠습니까?", MessageVN: "Bạn có chắc chắn muốn xóa lịch sử phiếu thưởng này không?", MessageEN: "Are you sure you want to delete this voucher history?" },
+    "COM1039": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "할인권 내역 삭제가 완료되었습니다.", MessageVN: "Quá trình xóa lịch sử phiếu thưởng đã hoàn tất.", MessageEN: "The voucher history deletion is completed." },
+    "COM1040": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "삭제 처리를 실패 하였습니다. 잠시 후 다시 시도해 주시길 바랍니다.", MessageVN: "Xóa quá trình xử lý không thành công. Vui lòng thử lại sau.", MessageEN: "Delete processing failed. Please try again later." },
+    "COM1041": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "삭제하신 리뷰는 복구할 수 없습니다.<br/>리뷰를 재 등록시에도 포인트는 다시 지급되지 않습니다.<br/>정말 리뷰를 삭제하시겠습니까?", MessageVN: "Không thể khôi phục bài đánh giá bạn đã xóa. Điểm sẽ không được trả lại khi đăng ký lại đánh giá. Bạn có chắc chắn muốn xóa bài đánh giá không?", MessageEN: "The review you deleted can not be restored. Points will not be re-paid when re-registering reviews. Are you sure you want to delete the review?" },
+    "COM1042": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람(할인)권 번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số vé xem (giảm giá).", MessageEN: "Please enter the viewing (discount) ticket number." },
+    "COM1043": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "올바른 관람(할인)권 번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số vé chính xác.", MessageEN: "Please enter the correct ticket number." },
+    "COM1044": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람(할인)권 앞자리는 6자리로 입력해 주십시오.", MessageVN: "Vé (giảm giá) Vui lòng nhập 6 chữ số cho trang đầu.", MessageEN: "Ticket (discount) Please enter 6 digits for the front page." },
+    "COM1045": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람(할인)권 뒷자리는 7자리로 입력해 주십시오.", MessageVN: "Vui lòng nhập 7 chữ số để xem (giảm) khối lượng.", MessageEN: "Please enter 7 digits for viewing (discount) volume." },
+    "COM1046": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "나의 관람영화 등록을 실패 하였습니다. 잠시 후 다시 시도해 주시길 바랍니다.", MessageVN: "Đăng ký phim của tôi không thành công. Vui lòng thử lại sau.", MessageEN: "My movie registration failed. Please try again later." },
+    "COM1047": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람 내역 삭제를 실패 하였습니다. 잠시 후 다시 시도해 주시길 바랍니다.", MessageVN: "Không thể xóa lịch sử chuyến tham quan. Vui lòng thử lại sau.", MessageEN: "Failed to delete the tour history. Please try again later." },
+    "COM1051": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "개인정보 수집 동의를 해주셔야 등록이 가능합니다.", MessageVN: "Qúy khách vui lòng đăng nhập thông tin cá nhân trước khi Gửi", MessageEN: "You must register your personal information before you can register." },
+    "COM1052": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "단체명을 입력해 주십시오.", MessageVN: "Vui lòng nhập tên nhóm.", MessageEN: "Please enter the group name." },
+    "COM1053": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "신청자명을 입력해 주십시오.", MessageVN: "Vui lòng nhập tên của bạn.", MessageEN: "Please enter your name." },
+    "COM1054": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "연락처를 입력해 주십시오.", MessageVN: "Vui lòng nhập thông tin liên hệ của bạn.", MessageEN: "Please enter your contact information." },
+    "COM1055": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "올바른 연락처 번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số liên lạc chính xác.", MessageEN: "Please enter the correct contact number." },
+    "COM1056": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이메일을 입력해 주십시오.", MessageVN: "Vui lòng nhập email của bạn.", MessageEN: "Please enter your email." },
+    "COM1057": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이메일 도메인을 선택해 주십시오.", MessageVN: "Vui lòng chọn một miền email.", MessageEN: "Please select an email domain." },
+    "COM1058": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이메일 도메인을 직접 입력해 주십시오.", MessageVN: "Vui lòng nhập tên miền email của bạn trực tiếp.", MessageEN: "Please enter your email domain directly." },
+    "COM1059": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이메일 형식이 일치하지 않습니다.", MessageVN: "Định dạng email không khớp", MessageEN: "Email format mismatch" },
+    "COM1060": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "분류를 선택해 주십시오.", MessageVN: "Vui lòng chọn một danh mục.", MessageEN: "Please select a category." },
+    "COM1061": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "예상 인원은 숫자만 입력 가능합니다.", MessageVN: "Số dự kiến ​​chỉ có thể được nhập bằng số.", MessageEN: "Only numbers can be entered." },
+    "COM1062": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "희망 시간은 숫자만 입력 가능합니다.", MessageVN: "Bạn chỉ có thể nhập số giờ mong muốn.", MessageEN: "Only numbers can be entered." },
+    "COM1063": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "영화관을 선택해 주십시오.", MessageVN: "Vui lòng chọn rạp chiếu phim.", MessageEN: "Please select a movie theater." },
+    "COM1064": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "제목을 입력해 주십시오.", MessageVN: "Vui lòng nhập tiêu đề.", MessageEN: "Please enter a title." },
+    "COM1065": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "특이사항을 입력해 주십시오.", MessageVN: "Vui lòng nhập ghi chú đặc biệt.", MessageEN: "Please enter a special note." },
+    "COM1066": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "상태를 변경하시면 입력값이 초기화 됩니다.<br>변경하시겠습니까?.", MessageVN: "Nếu bạn thay đổi trạng thái, giá trị đầu vào sẽ được khởi tạo. Bạn có muốn thay đổi nó không?", MessageEN: "If you change the state, the input value will be initialized. Do you want to change it?" },
+    "COM1067": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "저장 하시겠습니까?", MessageVN: "Bạn có muốn lưu nó?", MessageEN: "Do you want to save it?" },
+    "COM1068": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "취소 하시겠습니까?", MessageVN: "Bạn có chắc chắn muốn hủy không?", MessageEN: "Are you sure you want to cancel?" },
+    "COM1069": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "저장 실패", MessageVN: "Không lưu được", MessageEN: "Failed to save" },
+    "COM1070": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "올바른 희망시간을 입력해 주십시오.", MessageVN: "Vui lòng nhập thời gian chính xác.", MessageEN: "Please enter the correct time." },
+    "COM1071": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "등록 가능한 파일이 아닙니다.", MessageVN: "Nó không phải là một tập tin có thể đăng ký được.", MessageEN: "It is not a registerable file." },
+    "COM1072": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "2MB 이상의 파일은 업로드 하실수 없습니다.", MessageVN: "Bạn không thể tải lên các tệp lớn hơn 2MB.", MessageEN: "You can not upload files larger than 2MB." },
+    "COM1073": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "연락처를 선택해 주십시오.", MessageVN: "Vui lòng chọn một liên hệ.", MessageEN: "Please select a contact." },
+    "COM1074": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "성명을 입력해 주십시오.", MessageVN: "Vui lòng nhập tên đầy đủ của bạn.", MessageEN: "Please enter your full name." },
+    "COM1075": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "jpg, jpeg, png, bmp, gif, pdf 파일만 업로드가 가능 합니다.", MessageVN: "Chỉ có thể tải lên các tệp jpg, jpeg, png, bmp, gif, pdf.", MessageEN: "Only jpg, jpeg, png, bmp, gif, pdf files can be uploaded." },
+    "COM1076": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원 문의 시 이메일로 답변받기는 필수입니다.", MessageVN: "Điều bắt buộc là bạn nhận được e-mail khi bạn liên hệ với những người không phải là thành viên.", MessageEN: "It is imperative that you receive an e-mail when you contact non-members." },
+    "COM1077": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "문의종류를 선택해 주십시오.", MessageVN: "Vui lòng chọn loại truy vấn.", MessageEN: "Please select the type of inquiry." },
+    "COM1078": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "잘못된 휴대폰 번호입니다. 휴대폰 번호를 확인주십시오.", MessageVN: "Số điện thoại di động không hợp lệ. Vui lòng kiểm tra số điện thoại di động của bạn.", MessageEN: "Invalid mobile number. Please check your mobile number." },
+    "COM1079": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이메일 아이디를 입력해주십시오.", MessageVN: "Vui lòng nhập ID email của bạn.", MessageEN: "Please enter your email ID." },
+    "COM1080": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이메일 도메인을 입력해주십시오.", MessageVN: "Vui lòng nhập tên miền email của bạn.", MessageEN: "Please enter your email domain." },
+    "COM1081": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "분류를 선택해주십시오.", MessageVN: "Vui lòng chọn một danh mục.", MessageEN: "Please select a category." },
+    "COM1082": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "소분류를 선택해주십시오.", MessageVN: "Vui lòng chọn phân loại nhỏ.", MessageEN: "Please select small classification." },
+    "COM1083": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "제목을 입력해주십시오.", MessageVN: "Vui lòng nhập tiêu đề.", MessageEN: "Please enter a title." },
+    "COM1084": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "내용을 입력해주십시오.", MessageVN: "Vui lòng nhập nội dung.", MessageEN: "Please enter the content." },
+    "COM1085": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "제목은 한글 기준 40자를 넘을 수없습니다.", MessageVN: "Tiêu đề không thể vượt quá 40 ký tự.", MessageEN: "The title can not exceed 40 characters." },
+    "COM1086": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "내용은 한글 기준 2000자를 넘을 수없습니다.", MessageVN: "Nội dung không được vượt quá 2000 ký tự Hàn Quốc.", MessageEN: "Contents can not exceed 2000 Korean characters." },
+    "COM1087": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "내용을 입력해주십시오.", MessageVN: "Vui lòng nhập nội dung.", MessageEN: "Please enter the content." },
+    "COM1088": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "입력된 내용을 등록 하겠습니까?", MessageVN: "Bạn có muốn đăng ký nội dung đã nhập không?", MessageEN: "Do you want to register the entered contents?" },
+    "COM1089": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "입력을 취소하겠습니까?", MessageVN: "Bạn có muốn hủy đầu vào không?", MessageEN: "Do you want to cancel the input?" },
+    "COM1090": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이미 작성된 리뷰가 있습니다.", MessageVN: "Đã có các đánh giá bằng văn bản.", MessageEN: "There are already written reviews." },
+    "COM1091": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "추천이 해제되었습니다.", MessageVN: "Giới thiệu bị tắt.", MessageEN: "Referral is turned off." },
+    "COM1093": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "시작문자를 공백으로 시작 하실 수 없습니다.", MessageVN: "Bạn không thể bắt đầu ký tự bắt đầu bằng dấu cách.", MessageEN: "You can not start the start character with a space." },
+    "COM1100": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "카테고리 또는 메뉴 이동 시 당음 상품이 초기화 됩니다. 이동하시겠습니까?", MessageVN: "Khi bạn di chuyển một danh mục hoặc menu, sản phẩm sẽ được đặt lại. Bạn có chắc chắn muốn di chuyển không?", MessageEN: "When you move a category or menu, the product is reset. Are you sure you want to move?" },
+    "COM1101": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "담은 상품이 없습니다.", MessageVN: "Không có sản phẩm nào trong kho.", MessageEN: "There are no products in stock." },
+    "COM1102": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "담은 상품은 삭제됩니다.<br/> 구매를 하시겠습니까?", MessageVN: "Các mục bạn đã mua sẽ bị xóa. Bạn có muốn mua không?", MessageEN: "Items you have purchased will be deleted. Do you want to buy?" },
+    "COM1103": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "휴대폰 중간자리는 3~4 자리수가 필요합니다.", MessageVN: "Trung tâm của điện thoại yêu cầu 3 ~ 4 chữ số.", MessageEN: "The center of the phone requires 3 ~ 4 digits." },
+    "COM1104": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "휴대폰 마지막자리는 4 자리수가 필요합니다.", MessageVN: "Chữ số cuối cùng của điện thoại yêu cầu 4 chữ số.", MessageEN: "The last digit of the phone requires 4 digits." },
+    "COM1105": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "수량은 1개이상 선택하셔야 합니다.", MessageVN: "Bạn phải chọn ít nhất một số lượng.", MessageEN: "You must select at least one quantity." },
+    "COM1106": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "메세지 내용을 입력하세요.", MessageVN: "Vui lòng nhập tin nhắn của bạn.", MessageEN: "Please enter your message." },
+    "COM1107": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "선물 받으실분을 한분이상 등록하셔야 합니다.", MessageVN: "Bạn phải đăng ký nhiều người để nhận quà.", MessageEN: "You must register more than one person to receive the gift." },
+    "COM1108": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "선물 보내실 수량은 구매 수량 이하만 가능합니다.", MessageVN: "Xin lưu ý rằng số lượng bạn gửi bị giới hạn.", MessageEN: "Please note that the quantity you send is limited." },
+    "COM1109": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "정회원만 사용가능 합니다.", MessageVN: "Chỉ các thành viên hoạt động mới có thể sử dụng.", MessageEN: "Only active members can use." },
+    "COM1110": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "주문번호 생성에 실패했습니다.<br/> 다시 시도해 주십시오", MessageVN: "Không thể tạo số đơn đặt hàng. Vui lòng thử lại.", MessageEN: "Order number creation failed. Please try again." },
+    "COM1111": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "담은상품 영역에 상품이 저장되었습니다. 확인하시겠습니까?", MessageVN: "Mục đã được lưu trữ trong khu vực sản phẩm. Bạn có chắc không", MessageEN: "Item has been stored in the product area. Are you sure?" },
+    "COM1112": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "해당상품을 구매하시겠습니까?", MessageVN: "Bạn có muốn mua sản phẩm này không?", MessageEN: "Do you want to buy this product?" },
+    "COM1113": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "해당상품을 선물하시겠습니까?", MessageVN: "Bạn có muốn giới thiệu mặt hàng này không?", MessageEN: "Would you like to present this item?" },
+    "COM1114": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "입력하신 정보를 초기화 하시겠습니까?", MessageVN: "Bạn có chắc chắn muốn đặt lại thông tin bạn đã nhập không?", MessageEN: "Are you sure you want to reset the information you have entered?" },
+    "COM1115": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "선택하신 상품 저장이 실패했습니다. 다시 시도해 주십시오.", MessageVN: "Không thể lưu mục đã chọn. Vui lòng thử lại.", MessageEN: "The selected item failed to save. Please try again." },
+    "COM1116": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "옵션을 선택해 주십시오.", MessageVN: "Vui lòng chọn một tùy chọn.", MessageEN: "Please select an option." },
+    "COM1117": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "바로구매 시 담은상품이 초기화 됩니다. 구매를 진행하시겠습니까?", MessageVN: "Mặt hàng bạn đã mua sẽ được khởi tạo. Bạn có muốn tiếp tục mua hàng không?", MessageEN: "The item you purchased will be initialized. Do you want to proceed with the purchase?" },
+    "COM1118": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원은 상품을 선물할수 없습니다.<br/> 회원 또는 소셜로그인 후 이용해 주십시요.", MessageVN: "Không phải thành viên không thể trình bày sản phẩm của họ. Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội.", MessageEN: "Non-members can not present their products. Please use after member or social login." },
+    "COM1119": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원은 상품을 구매할수 없습니다.<br/> 회원 또는 소셜로그인 후 이용해 주십시요.", MessageVN: "Không phải thành viên không thể mua vật phẩm. Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội.", MessageEN: "Non-members can not purchase items. Please use after member or social login." },
+    "COM1120": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "선물 보내실 수량과 구매 수량이 일치 하지 않습니다.", MessageVN: "Số lượng bạn đang gửi không khớp với số lượng đã mua.", MessageEN: "The quantity you are sending does not match the quantity purchased." },
+    "COM1121": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "1+1 시네티콘은</br>특별 판매상품으로<br/>7일 이내 환불 가능합니다.", MessageVN: "1+1 Cineticon là một sản phẩm đặc biệt và có thể được hoàn trả trong vòng 7 ngày.", MessageEN: "1+1 Cineticon is a special product and can be refunded within 7 days." },
+    "COM1131": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "성명을 입력해 주십시오.", MessageVN: "Vui lòng nhập tên đầy đủ của bạn.", MessageEN: "Please enter your full name." },
+    "COM1132": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "분실일을 입력해 주십시오.", MessageVN: "Vui lòng nhập ngày mất.", MessageEN: "Please enter the date of the loss." },
+    "COM1133": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "분실시간을 입력해 주십시오.", MessageVN: "Vui lòng nhập số phút theo thời gian thực.", MessageEN: "Please enter the minutes in real time." },
+    "COM1134": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "분실시간은 숫자만 입력 가능합니다.", MessageVN: "Biên bản Bạn chỉ có thể nhập số trong thời gian thực.", MessageEN: "Only numbers can be entered." },
+    "COM1135": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "올바른 분실시간을 입력해 주십시오.", MessageVN: "Nhập đúng phút trong thời gian thực.", MessageEN: "Enter the correct minute in real time." },
+    "COM1136": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "분실물 종류를 입력해 주십시오.", MessageVN: "Vui lòng nhập loại tài sản bị mất.", MessageEN: "Please enter the type of lost property." },
+    "COM1137": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "분실물 색상을 입력해 주십시오.", MessageVN: "Vui lòng nhập màu của mục bị mất.", MessageEN: "Please enter the color of the lost item." },
+    "COM1151": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "Mobile 전용 이벤트 입니다.", MessageVN: "Sự kiện chỉ dành cho thiết bị di động.", MessageEN: "Mobile-only event." },
+    "COM1152": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "문의 내역을 삭제 하시겠습니까?", MessageVN: "Bạn có chắc chắn muốn xóa câu lệnh không?", MessageEN: "Are you sure you want to delete the statement?" },
+    "COM1161": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "이미 예매내역이 있습니다.<br/>응모하시겠습니까?", MessageVN: "Tôi đã đặt trước. Bạn có muốn đăng ký không?", MessageEN: "I already have a reservation. Would you like to apply?" },
+    "COM1162": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "이벤트 기간내 구매내역이 있습니다.<br/>응모하시겠습니까?", MessageVN: "Có lịch sử mua hàng trong thời gian diễn ra sự kiện. Bạn có muốn đăng ký không?", MessageEN: "There is a purchase history within the event period. Would you like to apply?" },
+    "COM1163": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "마이시네마>나의 쿠폰함에서<br/>당첨된 쿠폰을 확인해주세요.", MessageVN: "Rạp chiếu phim của tôi> Vui lòng kiểm tra phiếu giảm giá bạn đã thắng trong hộp phiếu giảm giá của tôi.", MessageEN: "My Cinema> Please check the coupon you won in my coupon box." },
+    "COM1164": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "꽝! 내일 다시 도전하세요.", MessageVN: "Boom! Hãy thử lại vào ngày mai.", MessageEN: "Boom! Try again tomorrow." },
+    "COM1167": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "상품 10개이상 선택해주시기바랍니다.", MessageVN: "Vui lòng chọn tối thiểu 10 sản phẩm.", MessageEN: "please select at least 10 items." },
+    "COM1168": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "Please contact phone number 0985645494 to receive a higher discount. If you still want to continue the transaction, please click Confirm button. Thank you.", MessageVN: "Xin vui lòng liên hệ số điện thoại 0985645494 để nhận được chiết khấu cao hơn. Nếu quý khách vẫn muốn tiếp tục giao dịch, vui lòng nhất nút Kiểm Tra. Xin cảm ơn.", MessageEN: "Please contact phone number 0985645494 to receive a higher discount. If you still want to continue the transaction, please click Check button. Thank you." },
+    "COM1201": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원은 영화 리뷰를 작성할 수 없습니다.<br>회원 또는 소셜로그인 후 이용해 주십시오.", MessageVN: "Không phải thành viên không thể tạo bài đánh giá phim.<br>Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội.", MessageEN: "Non-members can not create movie reviews." },
+    "COM1202": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원은 MY 영화관을 설정할 수 없습니다.<br>회원 또는 소셜로그인 후 이용해 주십시오.", MessageVN: "Không phải thành viên không thể thiết lập rạp chiếu phim của tôi.<br>Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội.", MessageEN: "Non-members can not set up MY theaters." },
+    "COM1203": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원은 상품을 구매할 수 없습니다.<br>회원 또는 소셜로그인 후 이용해 주십시오.", MessageVN: "Không phải thành viên không thể mua vật phẩm.<br>Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội.", MessageEN: "Non-members can not purchase items." },
+    "COM1204": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원은 이벤트 참여를 할 수 없습니다.<br>회원 또는 소셜로그인 후 이용해 주십시오.", MessageVN: "Không phải thành viên không được phép tham gia sự kiện này.<br>Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội.", MessageEN: "Non-members are not allowed to participate in the event." },
+    "COM1205": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비회원은 상품을 선물할 수 없습니다.<br>회원 또는 소셜로그인 후 이용해 주십시오.", MessageVN: "Không phải thành viên không thể tặng quà.<br>Vui lòng sử dụng sau khi thành viên hoặc đăng nhập xã hội.", MessageEN: "Non-members can not present gifts." },
+    "COM1206": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람 후, 등록이 가능합니다.", MessageVN: "Sau khi xem, đăng ký là có thể.", MessageEN: "" },
+    "COM0501": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "준비중입니다.(할인및 포인트 코드에 대한 페이지 경로가 없을경우) ", MessageVN: "(Trong trường hợp không có đường dẫn trang để giảm giá và mã điểm).", MessageEN: "(In case there is no page path for discount and point code)." },
+    "COM0502": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "점검중입니다.(ajax load error발생할경우)", MessageVN: "Kiểm tra (nếu xảy ra lỗi tải ajax)", MessageEN: "Checking (if ajax load error occurs)" },
+    "COM0503": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "로그인되지 않았습니다.<br/><br/>메인화면으로 이동합니다.", MessageVN: "Bạn chưa đăng nhập. Chuyển đến màn hình chính.", MessageEN: "You are not logged in. Go to the main screen." },
+    "COM0504": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "로그인을 하세요.", MessageVN: "Đăng nhập.", MessageEN: "Sign in." },
+    "COM0505": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "<p>오류가 발생하였습니다.</p><p>관리자에게 문의하세요.</p>", MessageVN: "Đã xảy ra lỗi, vui lòng liên hệ với quản trị viên của bạn.", MessageEN: "An error has occurred, please contact your administrator." },
+    "COM0601": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람권(할인권)을 선택해 주십시오.", MessageVN: "Vui lòng chọn một vé (vé giảm giá).", MessageEN: "Please select ticket/discount coupon." },
+    "COM0602": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람권(할인권) 번호를 확인해 주세요.", MessageVN: "Vui lòng kiểm tra số phiếu thưởng.", MessageEN: "Please check your ticket number." },
+    "COM0603": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람권(할인권) 번호를 입력해 주세요.", MessageVN: "Vui lòng nhập số vé của bạn.", MessageEN: "Please enter your ticket number." },
+    "COM0604": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비밀번호 정보를 확인해 주세요.", MessageVN: "Vui lòng xác minh thông tin mật khẩu của bạn.", MessageEN: "Please check your password information." },
+    "COM0605": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비밀번호를 입력해 주세요.", MessageVN: "Vui lòng nhập mật khẩu của bạn.", MessageEN: "Please enter your password." },
+    "COM0606": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "숫자만 입력 가능합니다.", MessageVN: "Chỉ có thể nhập số.", MessageEN: "Only numbers can be entered." },
+    "COM0607": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "카드번호를 입력해 주세요.", MessageVN: "Vui lòng nhập số thẻ của bạn.", MessageEN: "Please enter your card number." },
+    "COM0608": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "카드 비밀번호를 확인해 주세요.", MessageVN: "Vui lòng kiểm tra mật khẩu thẻ của bạn.", MessageEN: "se check your card password number." },
+    "COM0609": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "사용 가능한 포인트를 입력 후 적용해 주세요.", MessageVN: "Vui lòng nhập các điểm có sẵn và áp dụng.", MessageEN: "Please enter usable point and apply." },
+    "COM0610": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "사용 가능한 포인트가 부족합니다.", MessageVN: "Không có đủ điểm khả dụng.", MessageEN: "Usable point is insufficient." },
+    "COM0611": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "포인트 조회 후 사용해 주세요.", MessageVN: "Vui lòng sử dụng sau khi xem điểm.", MessageEN: "Please use after checking your point." },
+    "COM0612": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "생년월일 정보를 확인해 주세요.", MessageVN: "Vui lòng kiểm tra thông tin ngày sinh của bạn.", MessageEN: "Please enter birth date information." },
+    "COM0613": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "유효기간 정보를 확인해 주세요.", MessageVN: "Vui lòng kiểm tra thông tin ngày hết hạn.", MessageEN: "Please enter expiration date information." },
+    "COM0614": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "생년월일 정보를 입력해 주세요.", MessageVN: "Vui lòng nhập ngày sinh của bạn.", MessageEN: "Please enter birth date information." },
+    "COM0615": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "유효기간 정보를 입력해 주세요.", MessageVN: "Vui lòng cung cấp thông tin hợp lệ.", MessageEN: "Please enter expiration date information." },
+    "COM0616": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "카드번호 정보를 입력해 주세요.", MessageVN: "Vui lòng nhập thông tin số thẻ của bạn.", MessageEN: "Please enter your card number." },
+    "COM0617": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "포인트는 100p단위로 사용 가능합니다.", MessageVN: "Điểm có thể được sử dụng theo đơn vị 100p.", MessageEN: "Point can be used by 100p unit." },
+    "COM0618": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "관람권(or 할인권)을 선택해 주세요.", MessageVN: "Vui lòng chọn một vé (hoặc vé giảm giá).", MessageEN: "Please select ticket/discount coupon." },
+    "COM0619": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "할인 적용 후 최소 결제금액이 N원 이상이어야 합니다.", MessageVN: "Số tiền thanh toán tối thiểu sau khi áp dụng chiết khấu phải ít nhất là N USD.", MessageEN: "After discount application, minimum payment price should be over KRW N." },
+    "COM0620": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "결제금액을 다시 확인해주세요.", MessageVN: "Vui lòng kiểm tra lại số tiền thanh toán của bạn.", MessageEN: "Please re-check your payment price." },
+    "COM0621": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "(EN)선택한 할인수단으로 발생한 할인금액이 0원 이하일 때", MessageVN: "", MessageEN: "" },
+    "COM0622": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "입력하신 포인트가 결제금액보다 많습니다. 남은 결제금액만큼 자동차감합니다.", MessageVN: "Điểm bạn đã nhập nhiều hơn số tiền bạn đã thanh toán. Tôi sẽ thanh toán cho số tiền thanh toán còn lại.", MessageEN: "Entered point is more than payment price. Remaining payment price will be deducted automatically." },
+    "COM0623": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "현대M포인트, OK캐쉬백, GS포인트, 삼성재적립포인트는 함께 사용하실 수 없습니다.", MessageVN: "Hyundai M-điểm, OK cashbag, GS điểm, Samsung lại kiếm điểm không thể được sử dụng với nhau.", MessageEN: "Hyundai M point, OK cashbag, GS point, Samsung Reaccumulation point cannot be used together." },
+    "COM0624": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "이미 등록된 관람권(할인권)입니다.", MessageVN: "Nó đã được đăng ký vé (vé giảm giá).", MessageEN: "This ticket is already registered." },
+    "COM0625": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "KB 포인트리 사용시 사용 가능한 포인트 만큼 자동으로 차감되어지며, 포인트 부족 시 나머지 결제 금액은 KB카드로 자동 결제 됩니다.", MessageVN: "Khi bạn sử dụng các điểm KB, bạn sẽ tự động được khấu trừ từ các điểm có sẵn.Nếu bạn thiếu điểm, số tiền thanh toán còn lại sẽ được tự động thanh toán trên thẻ KB.", MessageEN: "When you use KB points, you are automatically deducted from the available points. If you are shortage of points, the remaining payment amount will be automatically settled on the KB card." },
+    "COM0626": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "씨티포인트 사용시 사용 가능한 포인트 만큼 자동으로 차감되어지며, 포인트 부족 시 나머지 결제 금액은 씨티카드로 자동 결제 됩니다.", MessageVN: "Điểm Citi sẽ tự động được khấu trừ từ các điểm có sẵn, và khi các điểm này ngắn, số tiền thanh toán còn lại sẽ được tự động tính vào Thẻ Citi.", MessageEN: "Citi Points are automatically deducted from the available points, and when the points are short, the remaining payment amount will be automatically charged to the Citi Card." },
+    "COM0627": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "사용 매수를 선택해 주십시오.", MessageVN: "Vui lòng chọn số lượng trang tính được sử dụng.", MessageEN: "Please select the number of sheets used." },
+    "COM0628": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "팝업이 차단되어 결제를 진행할 수 없습니다.", MessageVN: "Cửa sổ bật lên bị chặn và bạn không thể tiến hành thanh toán.", MessageEN: "The pop-up is blocked and you can not proceed with the payment." },
+    "COM0629": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "결제수단을 선택해 주십시오.", MessageVN: "Vui lòng chọn phương thức thanh toán.", MessageEN: "Please select your payment method." },
+    "COM0630": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "좌석할당시간 10분이 초과되었습니다.<br/>결제하기 버튼을 눌러 결제과정을 다시 시작해주십시오.", MessageVN: "Thời gian phân bổ chỗ ngồi vượt quá 10 phút. Vui lòng nhấp vào nút Thanh toán để tiếp tục quy trình thanh toán.", MessageEN: "Seat allocation time exceeded 10 minutes. Please click the Make Payments button to resume the checkout process." },
+    "COM0631": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "좌석 할당시간 10분이 초과되었습니다.<br/>연장하시겠습니까?<br/>(취소버튼 선택 시 선택된 정보가 삭제됩니다.)", MessageVN: "Thời gian phân bổ chỗ ngồi vượt quá 10 phút. Bạn có muốn gia hạn không? (Thông tin được chọn khi nút Hủy được chọn sẽ bị xóa.)", MessageEN: "Seat allocation time exceeded 10 minutes. Do you want to extend? (The information selected when Cancel button is selected is deleted.)" },
+    "COM0632": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "결제가 진행 중입니다.", MessageVN: "Thanh toán đang được tiến hành.", MessageEN: "Payment is in progress." },
+    "COM0633": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "휴대폰번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số điện thoại di động của bạn.", MessageEN: "Please enter your cellphone number." },
+    "COM0634": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "사업자등록번호를 입력해 주십시오.", MessageVN: "Vui lòng nhập số đăng ký kinh doanh của bạn.", MessageEN: "Please enter your business registration number." },
+    "COM0635": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "결제가 취소 되었습니다.", MessageVN: "Thanh toán của bạn đã bị hủy.", MessageEN: "Your payment has been canceled." },
+    "COM0636": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "아이디를 입력해 주세요.", MessageVN: "Vui lòng nhập ID của bạn.", MessageEN: "Please enter your id." },
+    "COM0637": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "비밀번호를 입력해 주세요.", MessageVN: "Vui lòng nhập mật khẩu của bạn.", MessageEN: "Please enter your password." },
+    "COM0638": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "귀하는 우리의 이용 약관에 동의하지 않습니다!", MessageVN: "Bạn chưa đồng ý với điều khoản của chúng tôi!", MessageEN: "You do not agree to our terms of use!" },
+    "COM0639": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "Vui lòng nhập 4 kí tự otp!", MessageVN: "Vui lòng nhập 4 kí tự otp!", MessageEN: "Please enter 4 number!" },
+    "COM0640": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "Wrong OTP!", MessageVN: "Otp không đúng!", MessageEN: "Wrong OTP!" },
+    "COM0641": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "Expire OTP!", MessageVN: "Otp đã hết hạn!", MessageEN: "Expire OTP!" },
+    "COM0001": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "저장되었습니다.", MessageVN: "Đã lưu.", MessageEN: "Saved." },
+    "COM0002": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "등록된 게시글을 삭제하시겠습니까?", MessageVN: "Bạn có chắc chắn muốn xóa các bài đăng đã đăng ký không?", MessageEN: "Are you sure you want to delete the registered posts?" },
+    "COM0003": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "영화관을 선택하세요.", MessageVN: "Vui lòng chọn rạp chiếu phim.", MessageEN: "Please select a movie theater." },
+    "COM0004": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "해당 영화관이 존재 하지 않습니다.", MessageVN: "Rạp chiếu phim không tồn tại.", MessageEN: "The movie theater does not exist." },
+    "COM0005": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "클립보드에 URL이 복사되었습니다.<br/><br/>Ctrl+V (붙여넣기) 단축키를 이용하시면,<br/>URL을 붙여 넣으실 수 있습니다.", MessageVN: "Đã sao chép URL vào khay nhớ tạm. Nếu bạn sử dụng phím tắt Ctrl V (Dán), bạn có thể dán URL.", MessageEN: "URL copied to clipboard. If you use the Ctrl V (Paste) shortcut, you can paste the URL." },
+    "BTN0001": { TitleKR: "저장", TitleVN: "Lưu", TitleEN: "SAVE", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "BTN0002": { TitleKR: "수정", TitleVN: "Sửa", TitleEN: "MODIFY", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "BTN0003": { TitleKR: "초기화", TitleVN: "Tạo tài khoản mới", TitleEN: "RESET", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "BTN0004": { TitleKR: "포인트 카드 신청", TitleVN: "Áp dụng cho một thẻ điểm", TitleEN: "Point card apply", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "BTN0005": { TitleKR: "적립 하기", TitleVN: "Áp dụng", TitleEN: "To earn", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "BTN0006": { TitleKR: "적립 안함", TitleVN: "Không áp dụng", TitleEN: "Do not earn", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL9001": { TitleKR: "마이시네마", TitleVN: "Tài khoản của tôi", TitleEN: "My Cinema", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0001": { TitleKR: "영화관", TitleVN: "Rạp", TitleEN: "Theater", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0002": { TitleKR: "<strong>최대 2개</strong>까지 선택 가능", TitleVN: "Lên đến 2 lựa chọn", TitleEN: "up to two can be selected", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0003": { TitleKR: "MY 영화관", TitleVN: "Rạp chiếu phim của tôi", TitleEN: "My Theater", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0004": { TitleKR: "로그인 후 확인하실 수 있습니다.", TitleVN: "Bạn có thể kiểm tra sau khi đăng nhập.", TitleEN: "You can check after logging.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0005": { TitleKR: "로그인", TitleVN: "Đăng nhập", TitleEN: "Login", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0006": { TitleKR: "정회원으로 로그인하시면 MY영화관을 확인하실 수 있습니다.", TitleVN: "Bạn có thể kiểm tra rạp hát MY bằng cách đăng nhập với tư cách thành viên đầy đủ.", TitleEN: "Please Regular Member log in to active you can check the MY Theater.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0007": { TitleKR: "MY 영화관을 등록해 주십시오.", TitleVN: "Vui lòng đăng ký rạp chiếu phim MY.", TitleEN: "Please register for MY Theater.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0008": { TitleKR: "설정", TitleVN: "Cài đặt", TitleEN: "Setting", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0009": { TitleKR: "전체영화관", TitleVN: "Tất cả", TitleEN: "All", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0010": { TitleKR: "스페셜관", TitleVN: "Phòng chiếu đặc biệt", TitleEN: " special theater", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0011": { TitleKR: "영화", TitleVN: "Phim", TitleEN: "Movie", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0012": { TitleKR: "예매순", TitleVN: "Xem nhiều nhất", TitleEN: "reservation order", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0013": { TitleKR: "개봉일순", TitleVN: "Ngày khai mạc", TitleEN: "개봉일순", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0014": { TitleKR: "평점순", TitleVN: "Đánh giá tốt nhất", TitleEN: "rating order", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0015": { TitleKR: "상영일", TitleVN: "Ngày", TitleEN: "Date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0016": { TitleKR: "예매하기", TitleVN: "Mua vé ngay", TitleEN: "Booking", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0017": { TitleKR: "영화관을 선택하세요.", TitleVN: "Vui lòng chọn phòng chiếu", TitleEN: "Please select a Theater", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0018": { TitleKR: "예매율", TitleVN: "Tỷ lệ đặt vé", TitleEN: "reservation rate", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0019": { TitleKR: "영화를 선택하세요.", TitleVN: "Vui lòng chọn phim", TitleEN: "Please select a movie", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0020": { TitleKR: "상영시간", TitleVN: "Giờ chiếu", TitleEN: "Showtime", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0021": { TitleKR: "예고편 상영 등으로 시작이 15여분 정도 차이 날 수 있습니다.", TitleVN: "Thời gian chiếu phim có thể chênh lệch 15 phút do chiếu quảng cáo, giới thiệu phim ra rạp", TitleEN: "The show time can be different by 10 minutes due to preview running.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0022": { TitleKR: "영화관별 조회", TitleVN: "Tìm theo vị trí rạp", TitleEN: "Search by cinema location", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0023": { TitleKR: "영화별 조회", TitleVN: "Tìm theo phim", TitleEN: "Search by movies", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0024": { TitleKR: "전체", TitleVN: "Tất cả", TitleEN: "All", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0025": { TitleKR: "2D", TitleVN: "2D", TitleEN: "2D", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0026": { TitleKR: "3D", TitleVN: "3D", TitleEN: "3D", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0027": { TitleKR: "상영시간이 조회되지 않았습니다. 영화관 및 영화를 선택해 주십시오.", TitleVN: "Không có lịch chiếu phù hợp. Vui lòng chọn phim và rạp khác.", TitleEN: "Running time cannot be found. Please select cinema location and movie.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0028": { TitleKR: "상영시간이 조회되지 않았습니다.", TitleVN: "Kính mời quý khách chọn phim để xem lịch chiếu chi tiết tại rạp", TitleEN: "Running time cannot be found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0029": { TitleKR: "이전단계", TitleVN: "Trở lại", TitleEN: "Previous step", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0030": { TitleKR: "예매정보", TitleVN: "Thông tin vé đã đặt", TitleEN: "advance ticket sale information", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0031": { TitleKR: "상영일", TitleVN: "Ngày", TitleEN: "Date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0032": { TitleKR: "상영관", TitleVN: "Rạp", TitleEN: "Theater", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0033": { TitleKR: "좌석", TitleVN: "Ghế ngồi", TitleEN: "Seat", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0034": { TitleKR: "시네몰", TitleVN: "Khu mua sắm Cine", TitleEN: "Cinemall", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0035": { TitleKR: "영화예매", TitleVN: "Đặt trước phim", TitleEN: "Ticket", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0036": { TitleKR: "상품구매", TitleVN: "Mua hàng", TitleEN: "Product", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0037": { TitleKR: "주문&#47;결제", TitleVN: "Đặt hàng&#47;Thanh toán", TitleEN: "Payment", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0038": { TitleKR: "인원", TitleVN: "Người", TitleEN: "Person", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0039": { TitleKR: "총 주문금액", TitleVN: "Tổng số tiền đặt hàng", TitleEN: "The total order amount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0040": { TitleKR: "할인/결제수단 선택", TitleVN: "Giảm giá", TitleEN: "Discount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0041": { TitleKR: "관람권&#47;할인권&#47;쿠폰", TitleVN: "Vé&#47;phiếu giảm giá&#47;phiếu giảm giá", TitleEN: "Movie ticket&#47;discount ticket&#47;Coupon", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0042": { TitleKR: "포인트&#47;기타할인", TitleVN: "Điểm", TitleEN: "Point", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0042_1": { TitleKR: "포인트&#47;기타할인", TitleVN: "Coin", TitleEN: "Coin", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0040_1": { TitleKR: "L.POINT", TitleVN: "L.Point", TitleEN: "L.Point", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0043": { TitleKR: "주문금액", TitleVN: "Thành tiền", TitleEN: "The purchase goods", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0044": { TitleKR: "할인금액", TitleVN: "Số tiền được giảm", TitleEN: "Discount amount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0045": { TitleKR: "총 결제 금액", TitleVN: "Tông tiền đơn hàng", TitleEN: "Total amount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0046": { TitleKR: "결제하기", TitleVN: "Thanh toán", TitleEN: "payment", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0047": { TitleKR: "결제수단", TitleVN: "Thanh toán", TitleEN: "Payment", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0048": { TitleKR: "전체초기화", TitleVN: "Quay lại bước đầu", TitleEN: "Initialization", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL00481": { TitleKR: "할인가이드", TitleVN: "Các hình thức giảm giá", TitleEN: "DiscountGuide", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0049": { TitleKR: "카드선택", TitleVN: "Chọn thẻ", TitleEN: "Card selection", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0050": { TitleKR: "신용카드", TitleVN: "Thẻ tín dụng", TitleEN: "Credit card", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0051": { TitleKR: "L.PAY 간편결제", TitleVN: "L.PAY Thanh toán dễ dàng", TitleEN: "L.PAY", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0052": { TitleKR: "휴대폰결제", TitleVN: "Thanh toán qua điện thoại di động", TitleEN: "Mobile", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0053": { TitleKR: "주문정보", TitleVN: "Thông tin đặt hàng", TitleEN: "(EN)주문정보", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0054": { TitleKR: "합계", TitleVN: "Tổng số", TitleEN: "(EN)합계", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0055": { TitleKR: "날짜", TitleVN: "Ngày tháng", TitleEN: "Date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0056": { TitleKR: "결제완료", TitleVN: "Hoàn tất thanh toán", TitleEN: "Complete payment", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0057": { TitleKR: "예매번호", TitleVN: "Số trước", TitleEN: "ticketing number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0058": { TitleKR: "구매번호", TitleVN: "Số đơn hàng", TitleEN: "(EN)구매번호", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0059": { TitleKR: "회원님, 결제가 성공적으로 완료되었습니다.", TitleVN: "Thanh toán của bạn đã được hoàn tất thành công.", TitleEN: "Payment is successfully completed.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0060": { TitleKR: "SMS 수신", TitleVN: "Tiếp nhận SMS", TitleEN: "SMS receive", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0061": { TitleKR: "신용카드 영수증", TitleVN: "Nhận thẻ tín dụng", TitleEN: "Credit card receipt", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0062_01": { TitleKR: "온라인 예매 취소는 상영 20분 전까지 가능하며, 20분 이전부터는 현장 취소만 가능합니다. (단, 무대인사 취소는 영화 시작 24시간 전 까지만 가능합니다.)", TitleVN: "Hủy đặt phòng trực tuyến là có thể 20 phút trước khi sàng lọc, nhưng hủy bỏ từ trang web 20 phút trước. (Tuy nhiên, hủy lời chào ở giai đoạn chỉ có thể 24 giờ trước khi bắt đầu bộ phim.)", TitleEN: "The cancellation for online ticketing is only available 20 minutes before the screening.(In case of stage greetings, the cancellation is available only 24 hours before the screening.)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0062_03": { TitleKR: "좌석 구매 시 함께 구매한 매점 상품은 영화 관람 완료 후에는 취소가 불가합니다.", TitleVN: "Bạn không thể hủy sau khi mua chỗ ngồi.", TitleEN: "Product which you bought width ticket is not refundable, if your screening is over.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0062": { TitleKR: "적립 예정 L.POINT는 영화 관람 다음 날 적립됩니다.", TitleVN: "L.POINT sẽ được ghi nhận vào bộ phim vào ngày hôm sau.", TitleEN: "L.Point saving due will be saved after a day the movie is watched.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0063": { TitleKR: "예고편 상영 등 사정에 의해 본 영화 시작이 10여분 정도 차이 날 수 있습니다.", TitleVN: "Đoạn phim quảng cáo và những thứ khác có thể khiến cho phim bắt đầu khác nhau khoảng 10 phút.", TitleEN: "The beginning time of the movie can be different by 10 minutes due to preview running.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0064": { TitleKR: "구매하신 상품의 유효기간 등 결제 상세내역은 마이시네마에서 확인하실 수 있습니다.", TitleVN: "Bạn có thể kiểm tra chi tiết thanh toán như thời hạn hiệu lực của các mặt hàng đã mua tại Rạp chiếu phim của tôi.", TitleEN: "Ticket history can be received by mobile if you allow receiving via SMS.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0065": { TitleKR: "SMS 수신을 이용하시면 예매내역을 휴대폰으로 받을 수 있습니다.", TitleVN: "Nếu bạn sử dụng tính năng nhận tin nhắn SMS, bạn có thể nhận các chi tiết đặt phòng bằng điện thoại di động.", TitleEN: "Reserved ticket cannot be found using resident registration number following privacy agreement.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0066": { TitleKR: "개인정보 보호 정책에 따라 주민번호로 예매 티켓을 찾을 수 없습니다. 꼭 예매 번호를 확인해주세요.", TitleVN: "Theo chính sách bảo mật của chúng tôi, chúng tôi không thể tìm thấy vé đặt chỗ với số đăng ký cư trú. Vui lòng kiểm tra số trước.", TitleEN: "Please check ticket number / ticketing number.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0067": { TitleKR: "확인", TitleVN: "Xác nhận", TitleEN: "Confirm", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0068": { TitleKR: "현금영수증 신청", TitleVN: "Nộp đơn xin nhận tiền mặt", TitleEN: "Cash receipts with us", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0069": { TitleKR: "선택사항 중 하나를 선택하시고, 해당란에 입력해 주십시오.", TitleVN: "Vui lòng chọn một trong các tùy chọn và điền vào ô.", TitleEN: "Select one of the choices, please enter.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0069_1": { TitleKR: "현금영수증 카드번호를 이용한 발급 신청은 카드번호 16이상 18자리 이하를 입력해주세요.", TitleVN: "Nếu bạn đang sử dụng số thẻ nhận tiền mặt, vui lòng nhập số thẻ từ 16 đến 18 chữ số.", TitleEN: "If you select the Card number, only available from 16 to 18 digit numbers.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0070": { TitleKR: "발급종류", TitleVN: "Loại phát hành", TitleEN: "Issued kind", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0071": { TitleKR: "소득공제", TitleVN: "Khấu trừ thu nhập", TitleEN: "Deduction", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0072": { TitleKR: "지출증빙", TitleVN: "Bằng chứng chi tiêu", TitleEN: "Proof of expenditure", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0073": { TitleKR: "등록유형", TitleVN: "Loại đăng ký", TitleEN: "Registration Type", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0074": { TitleKR: "휴대폰번호", TitleVN: "Số điện thoại di động", TitleEN: "Cell phone number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0075": { TitleKR: "카드번호", TitleVN: "Số thẻ", TitleEN: "Card number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0076": { TitleKR: "번호입력", TitleVN: "Nhập số", TitleEN: "Enter Number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0077": { TitleKR: "사용안함", TitleVN: "Tắt", TitleEN: "Not used", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0078": { TitleKR: "사업자등록번호", TitleVN: "Số đăng ký kinh doanh", TitleEN: "Company Registration Number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0079": { TitleKR: "바로입장 티켓", TitleVN: "Vé vào cửa", TitleEN: "Immediate entrance ticket", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0080": { TitleKR: "바로교환 티켓", TitleVN: "Vé trao đổi trực tiếp", TitleEN: "Immediate exchange ticket", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0081": { TitleKR: "현금영수증 등록", TitleVN: "Đăng ký nhận tiền mặt", TitleEN: "Cash register receipts", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0082": { TitleKR: "발급", TitleVN: "Đã ban hành", TitleEN: "Issued", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0083": { TitleKR: "관람권 등록", TitleVN: "Đăng ký vé vào cửa", TitleEN: "Regist gift certificate", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0084": { TitleKR: "관람권 번호", TitleVN: "Số vé", TitleEN: "Gift ticket number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0085": { TitleKR: "비밀번호", TitleVN: "Mật khẩu", TitleEN: "Password", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0086": { TitleKR: "등록", TitleVN: "Đăng ký", TitleEN: "Registration", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0087": { TitleKR: "바코드 등록", TitleVN: "Đăng ký mã vạch", TitleEN: "(EN)바코드 등록", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0088": { TitleKR: "사용가능한 관람권 정보", TitleVN: "Thông tin vé có sẵn", TitleEN: "Information on usable ticket", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0089": { TitleKR: "보유 관람권", TitleVN: "Vé vào cửa", TitleEN: "Gift tickets you have", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0090": { TitleKR: "사용기간", TitleVN: "Hạn sử dụng sản phẩm", TitleEN: "Period of use", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0091": { TitleKR: "구분", TitleVN: "Phân loại", TitleEN: "Division", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0092": { TitleKR: "적용", TitleVN: "Áp dụng", TitleEN: "Application", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0093": { TitleKR: "삼성m기프트 관람권 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin vé Samsung m Gift của bạn.", TitleEN: "Type the samsung gift ticket number you have", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0094": { TitleKR: "카드 유효기간", TitleVN: "Thời hạn hiệu lực của thẻ", TitleEN: "Expiration date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0095": { TitleKR: "조회", TitleVN: "Xem", TitleEN: "Checking", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0096": { TitleKR: "사용가능한 관람권", TitleVN: "Vé có sẵn", TitleEN: "Usable ticket information", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0097": { TitleKR: "사용매수", TitleVN: "Số đã sử dụng", TitleEN: "Used number of tickets", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0098": { TitleKR: "신한 combo 카드정보를 입력해 주세요.", TitleVN: "Shinhan combo Vui lòng nhập thông tin thẻ của bạn.", TitleEN: "Type your shinhancard information", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0099": { TitleKR: "카드 번호는 12~16자리이므로 정확하게 입력해 주세요.", TitleVN: "Số thẻ là 12 đến 16 chữ số, vì vậy hãy nhập số thẻ chính xác.", TitleEN: "Card number is 12~16 digits so enter them precisely.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL00991": { TitleKR: "현재 로그인한 ID 이외의 카드로 적립하실 경우 <br>카드번호를 입력해주세요.", TitleVN: "Vui lòng nhập số thẻ của bạn nếu bạn muốn thêm thẻ khác với thẻ bạn hiện đang đăng nhập.", TitleEN: "Please enter the card digits here if you'd like to save <br> L.POINT with other cards, not with your log-in ID.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0100": { TitleKR: "할인권 등록", TitleVN: "Đăng ký phiếu thưởng", TitleEN: "Regist gift certificate", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0101": { TitleKR: "할인권 번호", TitleVN: "Số phiếu thưởng", TitleEN: "Discount ticket number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0102": { TitleKR: "사용가능한 할인권 정보", TitleVN: "Thông tin phiếu giảm giá có sẵn", TitleEN: "Information about usable discount coupon", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0103": { TitleKR: "보유 할인권", TitleVN: "Phiếu giảm giá", TitleEN: "Voucher you have", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0104": { TitleKR: "할인금액", TitleVN: "Số tiền được giảm", TitleEN: "Discount amount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0105": { TitleKR: "사용가능한 쿠폰/할인권/관람권이 없습니다.", TitleVN: "Không có phiếu giảm giá / phiếu giảm giá / vé có sẵn.", TitleEN: "There is no coupon/discount coupon/ticket available on use.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0106": { TitleKR: "할인권", TitleVN: "Vé giảm giá", TitleEN: "vouche", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0107": { TitleKR: "원 사용", TitleVN: "₫ Sử dụng", TitleEN: "₫ use", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0108": { TitleKR: "적용 및 등록", TitleVN: "Áp dụng và đăng ký", TitleEN: "Application", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0109": { TitleKR: "카드번호 등록", TitleVN: "Đăng ký số thẻ", TitleEN: "Card number registered", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0110": { TitleKR: "L.POINT 카드 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin thẻ L.POINT của bạn.", TitleEN: "Please enter L.POINT card information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0111": { TitleKR: "온라인 비밀번호", TitleVN: "Mật khẩu trực tuyến", TitleEN: "Password", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0112": { TitleKR: "비밀번호 설정", TitleVN: "Đặt mật khẩu", TitleEN: "Password setting", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0113": { TitleKR: "사용 가능한 포인트", TitleVN: "Điểm khả dụng", TitleEN: "Available points", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0114": { TitleKR: "잔여 포인트", TitleVN: "Điểm còn lại", TitleEN: "Remaining point", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0115": { TitleKR: "적용 포인트", TitleVN: "Điểm ứng dụng", TitleEN: "Apply Point", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0116": { TitleKR: "사용 포인트", TitleVN: "Điểm sử dụng", TitleEN: "Used point", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0117": { TitleKR: "제공상품", TitleVN: "Sản phẩm được cung cấp", TitleEN: "Offered product", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0118": { TitleKR: "보유 시네마 포인트", TitleVN: "Cinema Coin khả dụng", TitleEN: "Cinema Coin balance", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0119": { TitleKR: "OK캐쉬백 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin túi tiền OK.", TitleEN: "Type the cash back information you have", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0120": { TitleKR: "온라인 비밀번호 변경", TitleVN: "Thay đổi mật khẩu trực tuyến", TitleEN: "change the on-line passcode", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121": { TitleKR: "아이디", TitleVN: "ID", TitleEN: "ID", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0122": { TitleKR: "<strong>최대 2편</strong>까지 선택 가능", TitleVN: "Có thể chọn tối đa 2 miếng", TitleEN: "up to two can be selected", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_01": { TitleKR: "현대M카드 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin thẻ Hyundai M của bạn.", TitleEN: "Please enteryour Hyundai M point information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_02": { TitleKR: "GS&amp;POINT 정보를 입력해 주세요.", TitleVN: "Please enter your GS&POINT information.", TitleEN: "Please enter your GS&POINT information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_03": { TitleKR: "S-OIL포인트 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin điểm S-OIL.", TitleEN: "Please enter your S-OIL point information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_04": { TitleKR: "신한 combo 카드정보를 입력해 주세요.", TitleVN: "Shinhan combo Vui lòng nhập thông tin thẻ của bạn.", TitleEN: "Please enter your shinhancard information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_05": { TitleKR: "삼성 재적립 보너스 클럽 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin câu lạc bộ thưởng phần thưởng Samsung của bạn.", TitleEN: "Please enter your samsung payback bonus card information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_06": { TitleKR: "블루 멤버스 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin Thành viên Xanh của bạn.", TitleEN: "Please enter your Blue Members card information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_07": { TitleKR: "RED 멤버스(Q 멤버스) 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin thành viên RED (thành viên Q).", TitleEN: "Please enter your Red Members card information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0121_08": { TitleKR: "해피머니 회원 정보를 입력해 주세요.", TitleVN: "Vui lòng nhập thông tin thành viên Happy Money của bạn.", TitleEN: "Please enter your happymoney card information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0124": { TitleKR: "인증 번호", TitleVN: "Số chứng nhận", TitleEN: "Certification Number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0125": { TitleKR: "카드 비밀번호", TitleVN: "Mật khẩu thẻ", TitleEN: "Password", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0126": { TitleKR: "타인의 카드일 경우, 소지자의 생년월일을 입력해 주세요.", TitleVN: "Đối với thẻ của người khác, vui lòng nhập ngày tháng năm sinh của chủ sở hữu.", TitleEN: "If the card belongs to a different person, please enter card holder’s birth date.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0127": { TitleKR: "그외 카드선택", TitleVN: "Chọn các thẻ khác", TitleEN: "Others", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0128": { TitleKR: "좌석 할당시간 10분이 초과되었습니다.\n연장하시겠습니까?\n(취소버튼 선택 시 선택된 정보가 삭제됩니다.)", TitleVN: "Thời gian phân bổ chỗ ngồi vượt quá 10 phút. Bạn có muốn gia hạn không? (Thông tin được chọn khi nút Hủy được chọn sẽ bị xóa.)", TitleEN: "10 minutes for seat allotment has passed. Would you like to extend? (when clicking cancel, selected information will be dismissed)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0129": { TitleKR: "생년월일", TitleVN: "Ngày sinh", TitleEN: "Date of birth", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0130": { TitleKR: "나의 L.POINT 사용", TitleVN: "Sử dụng L.POINT của tôi", TitleEN: "Using my L.POINT", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0131": { TitleKR: "직접 조회하여 사용", TitleVN: "Xem và sử dụng trực tiếp", TitleEN: "Direct view and use", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0132": { TitleKR: "로그인한 L.POINT 아이디로 적립", TitleVN: "Tích lũy điểm bằng tài khoản đã đăng nhập", TitleEN: "Earn with logged in L.POINT ID", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0133": { TitleKR: "카드번호 입력하여 적립", TitleVN: "Tích lũy điểm bằng tài khoản khác", TitleEN: "Earn by entering card number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0134": { TitleKR: "휴대폰으로 예매내역 받기", TitleVN: "Đặt chỗ trên điện thoại di động của bạn", TitleEN: "Get a reservation on your mobile phone", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0148": { TitleKR: "매", TitleVN: "Mọi", TitleEN: "ea", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0151": { TitleKR: "매 사용", TitleVN: "Sự sử dụng", TitleEN: "ea Use.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0154": { TitleKR: "이용안내 ", TitleVN: "Hướng dẫn sử dụng", TitleEN: "Guide", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0155": { TitleKR: "결제를 취소하시겠습니까?", TitleVN: "Bạn có chắc chắn muốn hủy thanh toán của mình không?", TitleEN: "Are you sure you want to cancel your payment?", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0156": { TitleKR: "장애 우대 ", TitleVN: "Tùy chọn khuyết tật", TitleEN: "For the Disabled ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0157": { TitleKR: "장애인은 인원/좌석 선택 화면에서 장애우대 티켓을 선택하시면 할인된 금액으로 예매하실 수 있으며,<br />장애인 복지카드 1~3등급 소지자는 <strong>동반 1인 할인</strong> 가능합니다.<br />아래 목록에서 동반할인 받으실 분을 선택해 주세요.", TitleVN: "Những người tàn tật có thể đặt mức giá chiết khấu bằng cách chọn vé cho khách khuyết tật trên màn hình lựa chọn vé / ghế ngồi.", TitleEN: "Disabled customers can get discounted price by selecting preference for the disabled ticket on select number of persons/seats screen and customers with disabled welfare card 1~3 level can have discount for one accompanier.<br />Please select an accompanier for discount from the list below.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0159": { TitleKR: "할인 혜택", TitleVN: "Giảm giá", TitleEN: "Discount benefits", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0160": { TitleKR: "티켓등급내용", TitleVN: "Chi tiết xếp hạng vé", TitleEN: "Ticket Rating", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0161": { TitleKR: "1~3등급 장애인 동반 할인", TitleVN: "Lớp 1 đến 3 được giảm giá", TitleEN: "1~3 level disabled discount for one accompanier.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0162": { TitleKR: "4~6 등급 장애인 본인 할인", TitleVN: "Lớp 4-6 cho người tàn tật", TitleEN: "4~6 level disabled discount for self.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0163": { TitleKR: "휴대폰 SMS로 예매 내역을 받아볼 수 있습니다.", TitleVN: "Bạn có thể nhận được đặt trước bằng tin nhắn SMS điện thoại di động.", TitleEN: "Ticket history can be received by mobile if you allow receiving via SMS.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0164": { TitleKR: "온라인 스위트샵과 기프트샵에서 구매한 상품은 마이시네마 &gt; 예매/구매 내역에서 확인 및 사용할 수 있습니다.", TitleVN: "Bạn có thể xem và sử dụng giao dịch mua hàng tại cửa hàng trực tuyến và cửa hàng quà tặng tại Rạp chiếu phim của tôi&gt; Lịch sử nâng cao / mua hàng.", TitleEN: "Purchased from online product suite shop and gift shop are available in the My Cinema Ticketing and check / purchase.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0165": { TitleKR: "비밀번호는 앞의 두자리만 입력해주세요", TitleVN: "Vui lòng chỉ nhập hai chữ số đầu tiên của mật khẩu của bạn.", TitleEN: "The first two digits of the password input.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_P_S_001": { TitleKR: "포인트 적립", TitleVN: "Điểm tích lũy", TitleEN: "Earn points", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_P_S_002": { TitleKR: "회원님, 주문이 성공적으로 완료 되었습니다.", TitleVN: "Đơn đặt hàng của bạn đã được hoàn tất thành công.", TitleEN: "Customer, your order is completed.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_P_S_003": { TitleKR: "포인트 적립을 원하실 경우 아래 항목을 입력하여 주십시오.", TitleVN: "Nếu bạn muốn kiếm điểm, vui lòng nhập các mục sau đây.", TitleEN: "If the word of thank you earn points by selecting the input items below.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_P_001": { TitleKR: "적립 예정 L.POINT는 영화 관람 다음 날 적립됩니다.", TitleVN: "L.POINT sẽ được ghi nhận vào bộ phim vào ngày hôm sau.", TitleEN: "", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0170": { TitleKR: "L.Pay는 결제정보를 미리 등록하여 비밀번호 입력만으로 빠르게 결제할 수 있는 결제 서비스입니다.", TitleVN: "L.Pay là một dịch vụ thanh toán cho phép bạn nhanh chóng thực hiện thanh toán bằng cách chỉ cần nhập mật khẩu của bạn và đăng ký trước thông tin thanh toán của bạn.", TitleEN: "(EN)L.Pay는 결제정보를 미리 등록하여 비밀번호 입력만으로 빠르게 결제할 수 있는 결제 서비스입니다.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0171": { TitleKR: "최초 1회 결제 후 결제 비밀번호 입력 없이 바로 결제 가능한 “빠른 결제” 서비스입니다", TitleVN: "Khoản thanh toán đầu tiên sau lần thanh toán &quot;thanh toán nhanh&quot; đầu tiên có thể được thanh toán mà không cần nhập mật khẩu", TitleEN: "It is a “speed payment ”service that enables immediate payment without entering payment password after initial payment.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0172": { TitleKR: "L-PAY  결제 서비스를 사용하기 위해서는 L.POINT 통합회원으로 가입하셔야 합니다.", TitleVN: "Để sử dụng dịch vụ thanh toán L-Pay, bạn phải là thành viên của L.POINT.", TitleEN: "To use L-PAY payment service, you have to join L.POINT integrated membership.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0173": { TitleKR: "L-PAY 결제 서비스를 사용하기 위해서는 L.PAY App. 설치 후 서비스 가입을 하셔야 합니다.", TitleVN: "Để sử dụng dịch vụ thanh toán L-PAY, bạn cần L.PAY App. Sau khi cài đặt, bạn phải đăng ký dịch vụ.", TitleEN: "To use L-PAY payment service, you have to install L.PAY. App and apply for a membership.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0174": { TitleKR: "L.PAY 결제 서비스를 사용하기 위해서는 서비스 가입 후 결제 수단(신용카드/직불계좌)를 등록하셔야 합니다.", TitleVN: "Để sử dụng dịch vụ phải đăng ký phương thức thanh toán thanh toán L.PAY (tài khoản thẻ tín dụng / thẻ ghi nợ) sau khi đăng ký.", TitleEN: "In order to use L.PAY payment service, apply for service and register payment option (credit card/debit card).", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0175": { TitleKR: "이용에 불편을 드려 죄송합니다.(고객센터 1899-6300)", TitleVN: "Chúng tôi xin lỗi vì bất kỳ sự bất tiện nào mà điều này có thể gây ra. (Dịch vụ khách hàng 1899-6300)", TitleEN: "Sorry for the inconvenient use. (customer center 1899-6300)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0176": { TitleKR: "L-PAY  결제 서비스를 사용하기 위해서는 L.POINT 통합회원으로 가입하셔야 합니다.", TitleVN: "Để sử dụng dịch vụ thanh toán L-Pay, bạn phải là thành viên của L.POINT.", TitleEN: "To use L-PAY payment service, you have to join L.POINT integrated membership.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0177": { TitleKR: "L.PAY 결제 서비스를 사용하기 위해서는 서비스 가입 후 결제 수단(신용카드/직불계좌)를 등록하셔야 합니다.", TitleVN: "Để sử dụng dịch vụ phải đăng ký phương thức thanh toán thanh toán L.PAY (tài khoản thẻ tín dụng / thẻ ghi nợ) sau khi đăng ký.", TitleEN: "In order to use L-PAY payment service, apply for service and register payment option (credit card/debit card).", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0178": { TitleKR: "L.PAY 결제 수단 등록하기 선택 시 고객님의 휴대폰으로 결제수단 등록 알림 메시지가 발송됩니다.", TitleVN: "Nếu bạn chọn đăng ký phương thức thanh toán bằng L.PAY, phương thức thanh toán của bạn sẽ được gửi đến điện thoại của bạn.", TitleEN: "When selecting registering for L.PAY payment option, message to notify registration of payment option will be sent to your phone.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0179": { TitleKR: "이용에 불편을 드려 죄송합니다.(고객센터 1899-6300)", TitleVN: "Chúng tôi xin lỗi vì bất kỳ sự bất tiện nào mà điều này có thể gây ra. (Dịch vụ khách hàng 1899-6300)", TitleEN: "Sorry for the inconvenient use. (customer center 1899-6300)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0180": { TitleKR: "L.PAY APP 설치하기", TitleVN: "Cài đặt ứng dụng L.PAY", TitleEN: "L.PAY APP Install", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0181": { TitleKR: "L.PAY APP 결제수단 등록하기", TitleVN: "L.PAY APP Đăng ký phương thức thanh toán của bạn", TitleEN: "L.PAY APP Registration payment", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0182": { TitleKR: "L.PAY 다운로드 URL SMS 전송", TitleVN: "L.PAY Tải xuống SMS của URL", TitleEN: "(EN) L.PAY 다운로드 URL SMS 전송", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0200": { TitleKR: "등급", TitleVN: "Xếp hạng", TitleEN: "Grade", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0201": { TitleKR: "개봉일", TitleVN: "Ngày phát hành", TitleEN: "Date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0202": { TitleKR: "기본정보", TitleVN: "Thông tin cơ bản", TitleEN: "Information", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0203": { TitleKR: "타입", TitleVN: "Loại", TitleEN: "Type", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0204": { TitleKR: "시놉시스", TitleVN: "Tóm tắt", TitleEN: "Synopsis", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL0205": { TitleKR: "영화상세 ", TitleVN: "Chi tiết phim", TitleEN: "Movie Details", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1001": { TitleKR: "인원/좌석선택", TitleVN: "Chọn ghế", TitleEN: "Person/Seat selection", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1002": { TitleKR: "영화관 공지", TitleVN: "Thông báo của rạp chiếu phim", TitleEN: "Theater Notice", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1003": { TitleKR: "영화관 요금표", TitleVN: "Chọn loại vé", TitleEN: "Movie price list", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1004": { TitleKR: "전체 초기화", TitleVN: "Đặt lại", TitleEN: "Initialization", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1005": { TitleKR: "좌석 붙임 설정", TitleVN: "Chọn ghế liền nhau", TitleEN: "Set as consecutive seats", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1006": { TitleKR: "좌석을 각각 지정하실 수 있으나, 상영관 특성에 따라 제한된 곳이 있을 수 있습니다.", TitleVN: "Bạn có thể chọn ghế liền nhau bằng cách click chọn vào từng mục bên cạnh.", TitleEN: "you can select seat except special cinema.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1007": { TitleKR: "인원은 최대 8명까지 선택할 수 있습니다.", TitleVN: "Bạn có thể chọn tối đa 8 người.", TitleEN: "up to 8 people can be selected", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1008": { TitleKR: "선택한 좌석을 다시 클릭하면 취소됩니다.", TitleVN: "Nhấp lại vào chỗ ngồi đã chọn để hủy.", TitleEN: "Selected seat is canceled when clicked again.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1009": { TitleKR: "SWEET SPOT은 최적의 화면과 사운드를 즐길 수 있는 좌석입니다.<br />(스크린 가운데에서 상영관 뒤 벽까지 직선 거리의 2/3 지점)", TitleVN: "SWEET SPOT là chỗ ngồi để thưởng thức hình ảnh và âm thanh tốt nhất<br />(2/3 khoảng cách thẳng từ giữa màn hình đến bức tường phía sau của màn hình)", TitleEN: "SWEET SPOT is a seat where you can enjoy the best screen and sound.<br />(Since two-2/3 of the screen to the wall behind the theater)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1010": { TitleKR: "출입문", TitleVN: "Lối vào", TitleEN: "Entrance gate", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1011": { TitleKR: "선택좌석", TitleVN: "Ghế đã chọn", TitleEN: "Selected seat", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1012": { TitleKR: "선택가능", TitleVN: "Ghế có thể chọn", TitleEN: "Selectable", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1013": { TitleKR: "예매완료", TitleVN: "Ghế đã mua", TitleEN: "Complete", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1014": { TitleKR: "선택불가", TitleVN: "Ghế không thể chọn", TitleEN: "Cannot be selected", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1015": { TitleKR: "롯데시네마가 추천하는 최적의 화면과 사운드를 즐길 수 있는 좌석입니다.", TitleVN: "Đây là nơi bạn có thể thưởng thức hình ảnh và âm thanh tốt nhất được Lotte Cinema giới thiệu.", TitleEN: "SWEET SPOT is a seat where you can enjoy the best screen and sound.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1016": { TitleKR: "중저음 사운드를 진동으로 전환해 깊은 울림을 주는 좌석입니다.", TitleVN: "Nó là một chỗ ngồi cho âm thanh sâu bằng cách chuyển đổi âm trầm sang rung.", TitleEN: "Super vibe movie is now showing. The cost is depending on seats.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1017": { TitleKR: "오직 두 사람만을 위한 독립된 커플용 좌석입니다.", TitleVN: "Đó là một cặp vợ chồng độc lập chỉ dành cho hai người.", TitleEN: "The cinema has cine couple seats including a table and couple seats. Price can be different according to type of seats.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1018": { TitleKR: "소파, 테이블, 별도 음향시스템을 갖춘 4•6인실의 독립된 관람 공간입니다.", TitleVN: "Phòng chiếu riêng biệt với 4•6 phòng với ghế sofa, bàn và hệ thống âm thanh riêng biệt.", TitleEN: "This cinema is equipped with sofas where more than 4 people can seat. Price can be different according to type of seats.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1019": { TitleKR: "특별요금", TitleVN: "Tỷ lệ đặc biệt", TitleEN: "Special price", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1020": { TitleKR: "상영관별 특별한 할인 요금으로 이용할 수 있는 좌석입니다.", TitleVN: "Đó là một chỗ ngồi có thể được sử dụng với mức giá chiết khấu đặc biệt của khán phòng.", TitleEN: "Price can be different by seats applied with special charge.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1021": { TitleKR: "장애인석", TitleVN: "Ghế bị vô hiệu hóa", TitleEN: "Disabled seats", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1022": { TitleKR: "휠체어 이용 고객도 편리하게 영화감상이 가능한 휠체어 전용 좌석입니다.", TitleVN: "Ghế dành cho người sử dụng xe lăn có sẵn cho người dùng xe lăn.", TitleEN: "There are seats to enjoy movie with wheel chairs. Price can be different by types of seats.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1023": { TitleKR: "발받침", TitleVN: "Ghế cho khách hàng cần sự trợ giúp", TitleEN: "Footrest", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1024": { TitleKR: "이전단계", TitleVN: "Trở lại", TitleEN: "Previous step", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1025": { TitleKR: "다음단계", TitleVN: "Bước tiếp theo", TitleEN: "Next step", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1026": { TitleKR: "영화", TitleVN: "Phim chiếu rạp", TitleEN: "Movie", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1027": { TitleKR: "예매정보", TitleVN: "Thông tin vé đã đặt", TitleEN: "Advance ticket sale information", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1028": { TitleKR: "상영일", TitleVN: "Ngày", TitleEN: "Date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1029": { TitleKR: "상영시간", TitleVN: "Giờ chiếu", TitleEN: "Showtime", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1030": { TitleKR: "상영관", TitleVN: "Rạp chiếu", TitleEN: "Theater", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1031": { TitleKR: "좌석", TitleVN: "Ghế ngồi", TitleEN: "Seat", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1032": { TitleKR: "상품정보", TitleVN: "Thông tin sản phẩm", TitleEN: "Product information", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1033": { TitleKR: "상품을 선택해 주십시오.", TitleVN: "Vui lòng chọn một sản phẩm.", TitleEN: "Please select product.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1034": { TitleKR: "총 결제 금액", TitleVN: "Tông tiền đơn hàng", TitleEN: "Total payment price", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1035": { TitleKR: "영화예매", TitleVN: "Đặt trước phim", TitleEN: "Ticket", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1036": { TitleKR: "상품구매", TitleVN: "Mua hàng", TitleEN: "Product", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1037": { TitleKR: "상영관", TitleVN: "Phòng chiếu", TitleEN: "Screen", MessageKR: "", MessageVN: "", MessageEN: "" },
+    
+    "LBL1038": { TitleKR: "각도조절이 가능한 가죽시트로 편안한 관람환경을 제공하는 좌석입니다.", TitleVN: "Những chiếc ghế cung cấp môi trường xem thoải mái với ghế da điều chỉnh được.", TitleEN: "The special seats providing comfortable circumstance with the leathern sheet and angle-control.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1039": { TitleKR: "SWEET SPOT", TitleVN: "SWEET SPOT", TitleEN: "SWEET SPOT", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1040": { TitleKR: "VIP석", TitleVN: "Ghế VIP", TitleEN: "VIP seat", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1041": { TitleKR: "커플", TitleVN: "Ghế couple", TitleEN: "Couple", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1042": { TitleKR: "프로스티지", TitleVN: "Ghế cao cấp", TitleEN: "Prestige", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL1043": { TitleKR: "리클라이너석", TitleVN: "Ghế Recliner", TitleEN: "Recliner seats", MessageKR: "", MessageVN: "", MessageEN: "" },
+
+    "LBL2001": { TitleKR: "할인가이드", TitleVN: "Các hình thức giảm giá", TitleEN: "Discount Guide", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL2002": { TitleKR: "카드명 검색", TitleVN: "Tìm kiếm tên thẻ", TitleEN: "Card Name Search", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL2003": { TitleKR: "카드명을 입력하세요.", TitleVN: "Vui lòng nhập tên thẻ.", TitleEN: "Enter the card name.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL2004": { TitleKR: "검색", TitleVN: "Tìm kiếm", TitleEN: "Search", MessageKR: "", MessageVN: "", MessageEN: "" },
+
+    "LBL2005": { TitleKR: "신용카드", TitleVN: "Thẻ tín dụng quốc tế (Mastercard, Visa, JCB,...)", TitleEN: "Credit Card", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL2006": { TitleKR: "ATM", TitleVN: "Thẻ ATM (Nội địa) / QR", TitleEN: "ATM Card / QR", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL2007": { TitleKR: "전자지갑", TitleVN: "eWallet(MoMo Pay,…)", TitleEN: "eWallet", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL2008": { TitleKR: "Buy now, pay later with 0% interest", TitleVN: "Fundiin - Mua trước trả sau 0% lãi", TitleEN: "Fundiin - Buy now, pay later with 0% interest", MessageKR: "", MessageVN: "", MessageEN: "" },
+
+    "LBL_M_T_001": { TitleKR: "예매취소는 상영 20분 전까지 가능합니다.", TitleVN: "Việc hủy đặt phòng có thể được thực hiện trước khi sàng lọc 20 phút.", TitleEN: "Ticket canceling is available until 20 minutes before the show time.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_002": { TitleKR: "모바일 바로입장 티켓 이용 시 캡쳐화면은 입장이 제한됩니다.", TitleVN: "Lối vào bị hạn chế khi sử dụng vé vào cửa di động.", TitleEN: "(EN)모바일 바로입장 티켓 이용 시 캡쳐화면은 입장이 제한됩니다.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_003": { TitleKR: "예고편과 광고 상영으로 실제 영화 시작 시간이 10분 정도 차이 날 수 있습니다.", TitleVN: "Đoạn giới thiệu quảng cáo và đoạn giới thiệu phim có thể khiến thời gian bắt đầu phim thực tế khác nhau khoảng 10 phút.", TitleEN: "The beginning time of the movie can be different by 10 minutes due to preview running.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_004": { TitleKR: "시네몰의 영화관람권은 롯데시네마 홈페이지 및 모바일 앱에서 사용할 수 있습니다.(현장 사용 불가)", TitleVN: "Vé xem phim CineMall có sẵn trên trang chủ Lotte Cinema và các ứng dụng di động (không có sẵn tại chỗ).", TitleEN: "(EN)시네몰의 영화관람권은 롯데시네마 홈페이지 및 모바일 앱에서 사용할 수 있습니다.(현장 사용 불가)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_005": { TitleKR: "시네몰 상품은 부분환불 및 현금환불이 불가합니다.<br />(2장의 시네몰 상품을 한 번에 구매하신 경우, 2장 모두 취소만 가능하며 그 중 1장이라도 사용하신 경우 환불되지 않습니다.)", TitleVN: "Cine Mall khuyến mại không hoàn lại và phần không dùng tiền mặt của hoàn (nếu bạn mua hai sản phẩm tại Cine Mall một lần, chỉ có 2 bị hủy bỏ và không được hoàn tiền nếu bạn sử dụng bất kỳ một trong số họ.)", TitleEN: "Cinema mall products cannot be partially refund or cash refund <br />(if 2 items are purchased together, all of them have to be cancelled at once and if one of them is used already, refund is not available). ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_006": { TitleKR: "L.POINT는 영화관람 후 적립됩니다. <br />(단 롯데시네마 성남, 성남신흥은 L.POINT 가맹점이 아닌 관계로 L.POINT 적립 및 사용이 불가합니다.)", TitleVN: "L.POINT sẽ được ghi có sau khi xem phim. (Tuy nhiên, Lotte Cinema Seongnam và Seongnam Shinheung không liên kết với L.POINT.", TitleEN: "Lotte cinema point, L.POINT is us saved after the movie is watched not after product purchase. <br />(Lotte cinema Seongnam, Seongnam shinhung are not L.POINT affiliates so saving and using L.POINT is not available). ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_007": { TitleKR: "결제가 완료된 시네몰 상품은 마이시네마 &gt; 예매내역에서 조회할 수 있습니다.", TitleVN: "Các hạng mục CineMall đã được gửi thành công có thể được xem tại My Cinema&gt; Advance Purchase History.", TitleEN: "Paid product can be viewed on my cinema &gt; ticket history.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_008": { TitleKR: "모바일 캡쳐 화면 소지 시, 입장 제한을 받을 수 있습니다.", TitleVN: "Nếu bạn có màn hình chụp di động, bạn có thể phải tuân theo các giới hạn nhập học.", TitleEN: "Entrance can be restricted if mobile screen is captured as a ticket.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_009": { TitleKR: "예고편과 광고 상영으로 실제 영화 시작 시간이 10분 정도 차이 날 수 있습니다.", TitleVN: "Đoạn giới thiệu quảng cáo và đoạn giới thiệu phim có thể khiến thời gian bắt đầu phim thực tế khác nhau khoảng 10 phút.", TitleEN: "The beginning time of the movie can be different by 10 minutes due to preview running.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_010": { TitleKR: "스위트샵 상품의 취소기한은 구매일로부터 30, 기프트샵 상품의 취소기한은 구매일로부터 60일 입니다.", TitleVN: "Các sản phẩm của Cửa hàng Swipe có thời hạn hủy là 30 kể từ ngày mua và các sản phẩm của Cửa hàng quà tặng có thời hạn hủy là 60 ngày kể từ ngày mua.", TitleEN: "(EN)스위트샵 상품의 취소기한은 구매일로부터 30, 기프트샵 상품의 취소기한은 구매일로부터 60일 입니다.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_011": { TitleKR: "구매취소는 취소기한 내 마이시네마 > 예매/구매내역에서만 가능합니다.(현장취소 불가)", TitleVN: "Hủy bỏ việc mua chỉ có thể được hủy bỏ trong My Cinema&gt; Advance / Purchase History.", TitleEN: "(EN)구매취소는 취소기한 내 마이시네마 > 예매/구매내역에서만 가능합니다.(현장취소 불가)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_012": { TitleKR: "구매하신 상품은 부분환불 및 현금환불이 되지 않습니다.", TitleVN: "Giao dịch mua của bạn sẽ không đủ điều kiện để được hoàn tiền một phần hoặc hoàn lại tiền mặt.", TitleEN: "(EN)구매하신 상품은 부분환불 및 현금환불이 되지 않습니다.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_013": { TitleKR: "여러 상품을 한 번에 사신 경우, 모두 취소만 가능하며 그 중 1장이라도 사용하신 상품이 있을 때는 환불되지 않습니다.", TitleVN: "Nếu bạn mua nhiều mặt hàng cùng lúc, bạn chỉ có thể hủy tất cả các mặt hàng đó. Nếu bạn đã sử dụng một trong số chúng, bạn sẽ không được hoàn lại tiền.", TitleEN: "(EN)여러 상품을 한 번에 사신 경우, 모두 취소만 가능하며 그 중 1장이라도 사용하신 상품이 있을 때는 환불되지 않습니다.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_014": { TitleKR: "적립 예정 L.POINT는 영화 관람 다음 날 적립됩니다.", TitleVN: "L.POINT sẽ được ghi nhận vào bộ phim vào ngày hôm sau.", TitleEN: "L.Point saving due will be saved after a day the movie is watched.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_015": { TitleKR: "SMS 수신을 이용하시면 예매내역을 휴대폰으로 받을 수 있습니다.", TitleVN: "Nếu bạn sử dụng tính năng nhận tin nhắn SMS, bạn có thể nhận các chi tiết đặt phòng bằng điện thoại di động.", TitleEN: "(EN)SMS 수신을 이용하시면 예매내역을 휴대폰으로 받을 수 있습니다.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL_M_T_016": { TitleKR: "얼리버드 상품은 특별관람권이므로 구매 후 7일 이내 환불 가능합니다.", TitleVN: "Các sản phẩm Early Bird là một vé vào cửa đặc biệt, vì vậy chúng có thể được hoàn lại trong vòng 7 ngày sau khi mua.", TitleEN: "(EN)얼리버드 상품은 특별관람권이므로 구매 후 7일 이내 환불 가능합니다.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3000": { TitleKR: "선물내역", TitleVN: "Chi tiết quà tặng", TitleEN: "Gift details", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3001": { TitleKR: "예매/구매내역", TitleVN: "Đặt vé", TitleEN: "Ticketing/purchase history", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3002": { TitleKR: "취소내역", TitleVN: "Chi tiết vé hủy", TitleEN: "Cancellation details", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3003": { TitleKR: "스마트오더가 가능한 상품에만 스마트오더 아이콘이 표시됩니다. 스마트오더 제조주문은 모바일에서만 가능합니다.", TitleVN: "Biểu tượng thứ tự thông minh chỉ được hiển thị cho các mục có thể được Đặt hàng thông minh. Đơn đặt hàng sản xuất đơn đặt hàng thông minh chỉ khả dụng trên thiết bị di động.", TitleEN: "Smart order icon is shown only on products that are available by smart order. Smart order's make as you order is only available on mobile.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3004": { TitleKR: "유의사항", TitleVN: "Lưu ý", TitleEN: "Notice", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3005": { TitleKR: "[예매취소 안내]", TitleVN: "[Hủy]", TitleEN: "[Cancel ticketing information]", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3006": { TitleKR: "예매취소는 상영 20분 전까지 가능합니다.", TitleVN: "Việc hủy đặt phòng có thể được thực hiện trước khi sàng lọc 20 phút.", TitleEN: "Ticket canceling is available until 20 minutes before the show time. ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3007": { TitleKR: "모바일 캡쳐 화면 소지 시, 입장 제한을 받을 수 있습니다.", TitleVN: "Nếu bạn có màn hình chụp di động, bạn có thể phải tuân theo các giới hạn nhập học.", TitleEN: "Entrance can be restricted if mobile screen is captured as a ticket.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3008": { TitleKR: "예고편 상영 등 사정에 의해 본 영화 시작이 10여분 정도 차이 날 수 있습니다.", TitleVN: "Đoạn phim quảng cáo và những thứ khác có thể khiến cho phim bắt đầu khác nhau khoảng 10 phút.", TitleEN: "The beginning time of the movie can be different by 10 minutes due to preview running.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3009": { TitleKR: "[상품취소 안내]", TitleVN: "[Hướng dẫn hủy vé trực tuyến]", TitleEN: "[Cancel ticketing information]", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3010": { TitleKR: "시네몰은 롯데시네마 홈페이지 및 스마트폰 어플리케이션에서 사용가능합니다.(현장 사용 불가)", TitleVN: "CineMall có sẵn trên trang chủ Lotte Cinema và các ứng dụng điện thoại thông minh.", TitleEN: "Cinema mall products can be used on Lotte cinema website and smartphone application (cannot be used at the door). ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3011": { TitleKR: "시네몰은 부분환불 및 현금으로 환불이 불가합니다.<br />(2장의 시네몰 상품을 한번에 구매하신 경우, 2장 모두 취소만 가능하며 그 중 1장라도 사용하신 쿠폰이 있는 경우  환불이 불가합니다.)", TitleVN: "CineMall không được hoàn trả bằng tiền mặt hoặc tiền mặt một phần (Nếu bạn mua hai món hàng CineMall cùng một lúc, bạn có thể hủy chỉ hai món hàng. Nếu bạn có một trong số họ, bạn không thể được hoàn lại tiền.)", TitleEN: "Cinema mall products cannot be partially refund or cash refund <br />(if 2 items are purchased together, all of them have to be cancelled at once and if one of them is used already, refund is not available). ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3012": { TitleKR: "롯데시네마 포인트,L.POINT는 시네몰 상품 구매시 적립되지 않고 영화관람 후 적립됩니다.<br />(롯데시네마 성남,성남신흥은 L.POINT 가맹정이 아닌 관계로  L.POINT 적립 및 사용이 불가합니다.)", TitleVN: "Lotte Cinema Point, L.POINT sẽ không được ghi nhận khi mua sản phẩm rạp chiếu phim nhưng sẽ được tích lũy sau khi xem phim (Lotte Cinema Seongnam và Seongnam Shinheung không liên kết với L.POINT.", TitleEN: "Lotte cinema point, L.POINT is us saved after the movie is watched not after product purchase. <br />(Lotte cinema Seongnam, Seongnam shinhung are not L.POINT affiliates so saving and using L.POINT is not available). ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3013": { TitleKR: "결제가 완료된 시네티몰 상품은 마이시네마 &gt; 예매내역에서 조회에서 가능합니다.", TitleVN: "Các sản phẩm Tymol của Cine đã được giải quyết có thể xem tại My Cinema&gt; Advance / Purchase History.", TitleEN: "Paid product can be viewed on my cinema &gt; ticket history.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3014": { TitleKR: "검색기간", TitleVN: "Thời gian tìm kiếm", TitleEN: "Search Terms", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3015": { TitleKR: "예매번호(예매일)", TitleVN: "Số vé (ngày đặt phòng)", TitleEN: "Ticketing(Date)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3016": { TitleKR: "예매/구매내역", TitleVN: "Đặt vé", TitleEN: "Ticketing", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3017": { TitleKR: "구매번호(구매일)", TitleVN: "Ngày mua vé", TitleEN: "Purchase(Date)", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3018": { TitleKR: "구매내역", TitleVN: "Điều khoản bổ sung", TitleEN: "Purchase", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3019": { TitleKR: "사용상태", TitleVN: "Trạng thái sử dụng", TitleEN: "Service condition", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3020": { TitleKR: "영화명", TitleVN: "Tên phim", TitleEN: "Movie", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3021": { TitleKR: "관람인원", TitleVN: "Số lượt truy cập", TitleEN: "People", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3022": { TitleKR: "주문금액", TitleVN: "Thành tiền", TitleEN: "Order amount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3023": { TitleKR: "결제취소", TitleVN: "Hủy thanh toán", TitleEN: "Revoke payment", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3024": { TitleKR: "상세내용", TitleVN: "Chi tiết", TitleEN: "More information", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3025": { TitleKR: "취소완료", TitleVN: "Đã hủy", TitleEN: "Cancelled", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3026": { TitleKR: "신용카드전표출력", TitleVN: "In thẻ tín dụng phiếu", TitleEN: "Credit card statement Print", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3027": { TitleKR: "상품명", TitleVN: "Tên sản phẩm", TitleEN: "Product name", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3028": { TitleKR: "사용기간", TitleVN: "Hạn sử dụng sản phẩm", TitleEN: "Period of use", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3029": { TitleKR: "관람권번호", TitleVN: "Số vé", TitleEN: "Admission ticket number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3030": { TitleKR: "구매금액", TitleVN: "Số tiền mua", TitleEN: "Order price", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3031": { TitleKR: "관람일", TitleVN: "Ngày tham quan", TitleEN: "DATE", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3032": { TitleKR: "좌석정보", TitleVN: "Thông tin chỗ ngồi", TitleEN: "Seat", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3033": { TitleKR: "현장발권이 불필요하니 상영관입장시 제시하여 주십시오.", TitleVN: "Xin vui lòng trình bày nó trên lối vào của khán phòng vì nó không phải là cần thiết để phát hành một vé ngay tại chỗ.", TitleEN: "Ticket printing at the door is unnecessary so just present the ticket for entrance.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3034": { TitleKR: "예매 취소는 상영 20분 전까지 가능합니다.", TitleVN: "Việc hủy đặt phòng có thể được thực hiện trước khi sàng lọc 20 phút.", TitleEN: "Ticket cancelling is only available 20 minutes before the showtime. ", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3035": { TitleKR: "캡쳐 화면 제시 시 입장이 제한됩니다.", TitleVN: "Mục nhập bị giới hạn khi trình bày ảnh chụp màn hình.", TitleEN: "If captured screen is presented, entrance will be restricted.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3036": { TitleKR: "교환권번호", TitleVN: "Số trao đổi", TitleEN: "Gift ticket number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3037": { TitleKR: "원", TitleVN: "₫", TitleEN: "₫", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3038": { TitleKR: "목록", TitleVN: "Danh sách", TitleEN: "List", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3039": { TitleKR: "검색결과가 없습니다.", TitleVN: "Không tìm thấy kết quả nào.", TitleEN: "No results found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3040": { TitleKR: "&#43; 더보기", TitleVN: "&#43; Thêm", TitleEN: "&#43; More", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3041": { TitleKR: "수량", TitleVN: "Số lượng", TitleEN: "Quantity", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3042": { TitleKR: "수신정보", TitleVN: "Thông tin đã nhận", TitleEN: "(EN)수신정보", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3043": { TitleKR: "매점상품 주문하기", TitleVN: "Đặt hàng sản phẩm", TitleEN: "Order snack bar product", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3044": { TitleKR: "상품정보 <span class='p_etc'>더 자세한 정보는 스위트샵 또는 기프트샵에서 확인해 주세요.</span>", TitleVN: "Để biết thêm thông tin, vui lòng truy cập Cửa hàng ngọt hoặc Cửa hàng quà tặng của chúng tôi.", TitleEN: "Product information <span class='p_etc'>Please check the detailed information of the product at sweet shop or gift shop.</span>", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3045": { TitleKR: "구성품", TitleVN: "Nội dung sản phẩm", TitleEN: "Components", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3046": { TitleKR: "구매가능기간", TitleVN: "Tính khả dụng", TitleEN: "Date available for purchase", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3047": { TitleKR: "구매 제한", TitleVN: "Số lượng mua tối thiếu", TitleEN: "Purchase limitation", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3048": { TitleKR: "사용기간", TitleVN: "Hạn sử dụng sản phẩm", TitleEN: "Period of use", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3049": { TitleKR: "설명", TitleVN: "Giải thích", TitleEN: "Description", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3050": { TitleKR: "합계", TitleVN: "Tổng số", TitleEN: "Total", MessageKR: "", MessageVN: "", MessageEN: "" },
+    
+    "LBL3052": { TitleKR: "상품 담기 후, 다음단계로 가시면 티켓과 함께 결제할 수 있습니다.", TitleVN: "Sau khi thêm các mục, bạn có thể thanh toán bằng vé nếu bạn chuyển sang bước tiếp theo.", TitleEN: "After adding the product, you have to proceed to next step to purchase ticket and item together.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3053": { TitleKR: "상품 담기", TitleVN: "Thêm vào giỏ hàng", TitleEN: "Add to basket", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3054": { TitleKR: "옵션선택", TitleVN: "Chọn tùy chọn", TitleEN: "Select option", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3055": { TitleKR: "수신정보", TitleVN: "Thông tin đã nhận", TitleEN: "(EN)수신정보", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3056": { TitleKR: "예매/구매한 내역이 없습니다.", TitleVN: "Không có lịch sử đặt mua / mua.", TitleEN: "No results found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL30561": { TitleKR: "No results found.", TitleVN: "Không có lịch sử mua hàng.", TitleEN: "No results found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3057": { TitleKR: "취소한 내역이 없습니다.", TitleVN: "Không có lịch sử hủy.", TitleEN: "No results found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3058": { TitleKR: "선물한 내역이 없습니다.", TitleVN: "Không có quà tặng nào.", TitleEN: "No results found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3059": { TitleKR: "보유한 쿠폰이 없습니다.", TitleVN: "Bạn không có bất kỳ phiếu giảm giá nào.", TitleEN: "No results found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3060": { TitleKR: "좌석 구매 시 함께 구매한 매점 상품은 영화 관람 완료 후에는 취소가 불가합니다.", TitleVN: "Bạn không thể hủy sau khi mua chỗ ngồi.", TitleEN: "Product which you bought width ticket is not refundable, if your screening is over.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL3061": { TitleKR: "매점 상품은 할인 상품으로 L.POINT 적립이 불가합니다.", TitleVN: "Các mặt hàng trong cửa hàng không đủ điều kiện nhận L.POINT.", TitleEN: "Product is discount goods, which is not earning you L.POINT.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4001": { TitleKR: "영화관별 상영시간표", TitleVN: "Lịch chiếu phim theo rạp", TitleEN: "Show time by cinema location", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4002": { TitleKR: "영화별 상영시간표", TitleVN: "Danh sách phim chiếu theo rạp", TitleEN: "Movies by cinema location", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4003": { TitleKR: "영화관", TitleVN: "Rạp phim", TitleEN: "Theater", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4004": { TitleKR: "영화", TitleVN: "Phim chiếu rạp", TitleEN: "Movie", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4005": { TitleKR: "예매순", TitleVN: "Xem nhiều nhất", TitleEN: "Reservation order", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4006": { TitleKR: "평점순", TitleVN: "Đánh giá tốt nhất", TitleEN: "Rating order", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4007": { TitleKR: "상영시간", TitleVN: "Giờ chiếu", TitleEN: "Showtime", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4008": { TitleKR: "예고편 상영 등으로 시작이 15여분 정도 차이 날 수 있습니다.", TitleVN: "Thời gian chiếu phim có thể chênh lệch 15 phút do chiếu quảng cáo, giới thiệu phim ra rạp", TitleEN: "The show time can be different by 10 minutes due to preview running.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4009": { TitleKR: "상영시간이 조회되지 않았습니다. 영화관을 선택해 주세요.", TitleVN: "Kính mời quý khách chọn phim để xem lịch chiếu chi tiết tại rạp", TitleEN: "Running time cannot be found", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL4010": { TitleKR: "상영시간이 조회되지 않았습니다. 영화를 선택해 주세요.", TitleVN: "Kính mời quý khách chọn phim để xem lịch chiếu chi tiết tại rạp", TitleEN: "Running time cannot be found.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5001": { TitleKR: "알림", TitleVN: "Thông báo", TitleEN: "Notice", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5002": { TitleKR: "주차요금 할인 안내", TitleVN: "Hướng dẫn giảm giá phí đỗ xe", TitleEN: "Information on parking fee discount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5003": { TitleKR: "2015년 10월 28일부로 롯데시네마 이용 시 주차 요금이 할인됩니다.", TitleVN: "Phí đỗ xe sẽ được giảm giá khi sử dụng Lotte Cinema vào ngày 28 tháng 10 năm 2015.", TitleEN: "Parking fee is discounted for using Lotte cinema effective as of Oct 28, 2015", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5004": { TitleKR: "기존", TitleVN: "Hiện có", TitleEN: "Original", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5005": { TitleKR: "변경", TitleVN: "Thay đổi", TitleEN: "Change", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5006": { TitleKR: "유의사항", TitleVN: "Lưu ý", TitleEN: "Notice", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5007": { TitleKR: "10시~20시 : 10분당 800원<br />그 외 시간 : 10분당 200원", TitleVN: "", TitleEN: "10 am ~ 8 pm: KRW 800 per 10 min.<br />Other times: KRW 200 per 10 min.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5008": { TitleKR: "변경 관람 당일 최초 4시간까지 4,800원<br />롯데월드몰 주차장에 한함", TitleVN: "", TitleEN: "Exclusive to Lotteworld mall parking lot,<br />KRW 4,800 for the first 4 hours of movie date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5009": { TitleKR: "아이폰 사용 고객은 각층 인포데스크(5,7,10층)에서<br />주차할인권 수령", TitleVN: "", TitleEN: "iPhone users can pick up parking discount tickets<br />at the information desk (floor 5, 7, 10).", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5010": { TitleKR: "확인", TitleVN: "Xác nhận", TitleEN: "Confirm", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5011": { TitleKR: "고객인증 번호 입력", TitleVN: "Nhập số xác minh của khách hàng", TitleEN: "Enter customer certification number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5012": { TitleKR: "영화관 현장 티켓 발권 목적으로 사용되니 반드시 입력하시기 바랍니다.", TitleVN: "Hãy chắc chắn nhập nó bởi vì nó được sử dụng cho mục đích vé.", TitleEN: "Please enter the information as it is used for the purpose of cinema ticket printing at the door.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5013": { TitleKR: "미 입력 시 현장 티켓 발권에서 아래 항목으로 고객의 티켓을 찾을 수&nbsp;없습니다.", TitleVN: "Nếu bạn không nhập, bạn có thể tìm thấy vé của bạn với các mục sau đây từ vé bán vé của bạn", TitleEN: "If not entered, your ticket cannot be found with below clauses for ticket printing at the door.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5014": { TitleKR: "부정확한 정보로 인한 예매사고 발생시 롯데시네마는 책임지지 않습니다.", TitleVN: "Lotte Cinema không chịu trách nhiệm đối với bất kỳ đặt phòng nào do thông tin không chính xác.", TitleEN: "Lotte cinema is not responsible for reservation accident due to unclear information.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5015": { TitleKR: "회원정보변경은 고객인증 번호 변경과 별도로 이루어지며 회원정보 변경을 위해서는 마이 시네마 &gt; 부가정보 수정 &gt; 회원정보 변경 메뉴를 이용해주시기 바랍니다.", TitleVN: "Thay đổi thông tin thành viên được thực hiện riêng biệt với thay đổi số xác thực của khách hàng Để thay đổi thông tin thành viên, vui lòng sử dụng MYCINEMA&gt; Chỉnh sửa thông tin bổ sung&gt; Thay đổi menu thông tin thành viên.", TitleEN: "Member information change is completed separately from customer verification number change and for changing member information please use My cinema > Optional information modification > Member information change menu", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5016": { TitleKR: "이름", TitleVN: "Tên", TitleEN: "Name", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5017": { TitleKR: "생년월일", TitleVN: "Ngày sinh", TitleEN: "Birthday", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5018": { TitleKR: "휴대폰번호", TitleVN: "Số điện thoại di động", TitleEN: "Cell phone number", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5019": { TitleKR: "사용안함", TitleVN: "Tắt", TitleEN: "Not used", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5020": { TitleKR: "확인", TitleVN: "Xác nhận", TitleEN: "Confirm", MessageKR: "", MessageVN: "", MessageEN: "" },
+    // KMJ 2018-11-20 로그인페이지 다국어적용
+    "LBL5021": { TitleKR: "회원을 위한 다양한 맞춤 서비스를 이용해보세요.", TitleVN: "Vui lòng đăng nhập để nhận nhiều ưu đãi dành riêng cho thành viên của Lotte Cinema.", TitleEN: "Please sign-in to enjoy benefits for Lotte Cinema member.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5022": { TitleKR: "L.POINT 아이디 하나면, 모든 L.POINT 제휴사의 온라인/모바일을 편리하게 이용할 수 있습니다.", TitleVN: "Nếu bạn có một ID, bạn có thể đăng nhập trực tuyến / app của tất cả các Công ty áp dụng Thẻ thành viên L.Point một cách thuận tiện.", TitleEN: "If you have ID L.POINT, you can sign-in to all Lotte Group subsidiaries easily.", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5023": { TitleKR: "회원가입", TitleVN: "Đăng kí tài khoản", TitleEN: "REGISTER ID NOW", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5024": { TitleKR: "아이디 저장", TitleVN: "Lưu ID", TitleEN: "Save ID", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5025": { TitleKR: "아이디 찾기", TitleVN: "Tìm ID", TitleEN: "Find ID", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL5026": { TitleKR: "비밀번호 찾기", TitleVN: "Tìm mật khẩu", TitleEN: "Find Password", MessageKR: "", MessageVN: "", MessageEN: "" },
+
+    "COM_OIL_0625": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "조회가 완료 되었습니다.<br>적용 버튼을 눌러주세요.", MessageVN: "Yêu cầu của bạn đã hoàn tất. Vui lòng nhấp vào nút Áp dụng.", MessageEN: "Your inquiry is complete. Please click the Apply button." },
+    "LBL9999": { TitleKR: "안내", TitleVN: "Hướng dẫn", TitleEN: "Notice", MessageKR: "[월드타워 2nd MOVIE NIGHT]<br><br>ㆍ본 회차에 한해 파티 입장 혜택이 제공됩니다.<br>ㆍ영화 상영 직후 파티가 시작됩니다.<br>ㆍ주류가 제공되므로<br>만 19세 미만 청소년은 참석이 불가합니다. <br>ㆍ원활한 행사 진행을 위해 상영시간 24시간 이전부터<br>예매취소 불가합니다.(현장 취소만 가능)", MessageVN: "[WORLD TOWER 2nd MOVIE NIGHT] ㆍ Bữa tiệc này chỉ dành cho các bữa tiệc ㆍ Buổi tiệc sẽ bắt đầu ngay sau buổi kiểm tra ㆍ Những người chưa thành niên dưới 19 tuổi không được phép tham dự. ㆍ Không thể hủy đơn đặt hàng trước từ 24 giờ trước thời gian diễn ra sự kiện thuận lợi.", MessageEN: "[WORLD TOWER 2nd MOVIE NIGHT] ㆍ This party is only available for parties. ㆍ The party will start shortly after the screening. ㆍ Juveniles under the age of 19 are not allowed to attend. ㆍ Pre-order cancellation is not possible from 24 hours before the show time for smooth event." },
+    // Label for cinema coin
+    "LBL8001": { TitleKR: "Topup Cinema Coin", TitleVN: "Nạp Cinema Coin", TitleEN: "Topup Cinema Coin", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8002": { TitleKR: "Topup Cinema Coin | Lotte Cinema", TitleVN: "Nạp Cinema Coin | Lotte Cinema", TitleEN: "Topup Cinema Coin | Lotte Cinema", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8003": { TitleKR: "Account coin", TitleVN: "Account coin", TitleEN: "Account coin", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8004": { TitleKR: "Coin amount:", TitleVN: "Tổng số coin:", TitleEN: "Coin amount:", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8005": { TitleKR: "or Choose amount:", TitleVN: "hoặc chọn:", TitleEN: "or Choose amount:", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8006": { TitleKR: "Total payment", TitleVN: "Tổng thanh toán", TitleEN: "Total payment", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8007": { TitleKR: "Topup to my friend", TitleVN: "Nạp cho bạn", TitleEN: "Topup to my friend", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8008": { TitleKR: "Your OTP", TitleVN: "Mã otp đã gửi đến số điện thoại của bạn", TitleEN: "Your OTP", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8009": { TitleKR: "Payment by Cinema Coin", TitleVN: "Thanh toán bằng Cinema Coin", TitleEN: "Payment by Cinema Coin", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8010": { TitleKR: "Coin apply", TitleVN: "Coin áp dụng", TitleEN: "Coin apply", MessageKR: "", MessageVN: "", MessageEN: "" },
+    // Label for galaxy
+    "LBL8011": { TitleKR: "Expire date", TitleVN: "Thời hạn sử dụng", TitleEN: "Expire date", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8012": { TitleKR: "Quantity", TitleVN: "Số lượng", TitleEN: "Quantity", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8013": { TitleKR: "Total Amount", TitleVN: "Tổng giá bán", TitleEN: "Total Amount", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8014": { TitleKR: "Code", TitleVN: "Mã sử dụng", TitleEN: "Code", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8015": { TitleKR: "Gói GalaxyPlay của bạn đã được kích hoạt thành công Vui lòng kiểm tra trên tài khoản GalaxyPlay của bạn!", TitleVN: "Gói GalaxyPlay của bạn đã được kích hoạt thành công Vui lòng kiểm tra trên tài khoản GalaxyPlay của bạn!", TitleEN: "Gói GalaxyPlay của bạn đã được kích hoạt thành công Vui lòng kiểm tra trên tài khoản GalaxyPlay của bạn!", MessageKR: "", MessageVN: "", MessageEN: "" },
+    "LBL8016": { TitleKR: "Gói GalaxyPlay của bạn kích hoạt thất bại. Vui lòng liên hệ hotline miễn phí 18009090 (24/7) để được hỗ trợ", TitleVN: "Gói GalaxyPlay của bạn kích hoạt thất bại. Vui lòng liên hệ hotline miễn phí 18009090 (24/7) để được hỗ trợ", TitleEN: "Gói GalaxyPlay của bạn kích hoạt thất bại. Vui lòng liên hệ hotline miễn phí 18009090 (24/7) để được hỗ trợ", MessageKR: "", MessageVN: "", MessageEN: "" },
+};

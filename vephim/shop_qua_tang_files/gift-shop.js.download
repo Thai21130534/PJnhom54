@@ -1,0 +1,9 @@
+﻿
+$(document).ready(function () {
+    // ##### 베스트 상품 슬라이드 #####
+    cinemaMallKeyVisual();
+    // ##### 기프트 상품 그리기 #####
+    getCinemaMallLists();
+
+});
+

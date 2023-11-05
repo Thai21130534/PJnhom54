@@ -1,0 +1,66 @@
+﻿//카카오 공유 필수  항목
+//<script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
+function kakaoAuth() {
+    try {
+        Kakao.init('acf0fd7d2764b90e8d7a32a2eab4807a');			//자바스크립트 api 키값
+    }
+    catch (e) { }
+}
+//
+ToShare = function (type, url, title) {
+
+	var shortUrl = encodeURIComponent(url);
+	var openUrl, nt;
+    
+    //var fbAppId = '735064400171129';
+	//var fbParam = 'href=' + url + '&display=popup&redirect_uri=' + url + '&app_id=' + fbAppId;
+
+	switch (type){
+	    case "t":	//Tweeter
+
+	        // 구글 URL 단축
+	        $.ajax({
+	            url: 'https://www.googleapis.com/urlshortener/v1/url?key=AIzaSyDPGtHBasOiAkakzVsPQuy1Jlbp_Z5fKnc',
+	            type: 'POST',
+	            contentType: 'application/json; charset=utf-8',
+	            data: '{ longUrl: "' + url + '"}',
+	            dataType: 'json',
+	            async: false,
+	            success: function (response) {
+	                var result = response.id;
+	                url = result;
+	            }
+	        });
+
+		    nt = encodeURIComponent(title);
+		    //openUrl = "http://twitter.com/share?text=" + nt + "&url=" + shortUrl;
+		    openUrl = "https://twitter.com/intent/tweet?text=" + nt + "&url=" + url;
+			window.open(openUrl, "twitter_pop");
+			break;
+		case "f" :	//Facebook
+			//openUrl = "https://www.facebook.com/dialog/share?"
+			//+"app_id=cinema@lotte.net"
+			//+"&href=" + shortUrl
+			//+"&display=popup"
+			//+ "&redirect_uri=https%3A%2F%2www.lottecinema.com";
+		    openUrl = "http://www.facebook.com/sharer.php?u=" + shortUrl;
+		    //openUrl = "https://www.facebook.com/dialog/share?u=" + fbParam;
+			window.open(openUrl, "facebook_pop");
+			break;
+		//case "g":	//Google+
+		//	openUrl = "https://plus.google.com/share?url=" + shortUrl;
+		//	window.open(openUrl, "google_pop", "menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600");
+		//	break;
+		case "k":	//Kakao Story
+			//openUrl = "https://story.kakao.com/share?url=" + shortUrl;
+			//window.open(openUrl, "kakao_pop", "menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600");
+			Kakao.Story.share({
+			    url: url,
+			    text: title
+			});
+			break;
+	}
+}
+
+
+

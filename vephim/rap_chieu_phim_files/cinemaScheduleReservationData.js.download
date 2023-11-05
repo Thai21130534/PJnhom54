@@ -1,0 +1,1210 @@
+﻿
+/************************************************************************************************* 
+ *  @Author : 이인수 (is@madive.co.kr)
+ *  @Description : web 영화관 회차정보
+ *  @Version  1.0.4
+************************************************************************************************/
+
+var cinemaDateArray;
+var cinemaPlayUtill;
+var cinemaReservation;
+$(function () {
+
+    //설정위치 이동 $('.ad_pic').hide();
+
+    $.fn.ticketReservation = function (option) {
+        var S = $.extend({ target: '', member: '', step: 1, leng: 'LL', screenData: '1', areaData: '0001', cinemaData: '1016', movieData: '' }, option);
+
+        this.target = $(S.target);
+        this.calendar = this.target.find('.calendar');
+        this.area = this.target.find('.theater_zone');
+        this.cinema = '.area_list';
+        this.areaZone = '.area_zone';
+        this.areaTab = this.target.find('.theater_list');
+        this.areaTabVar = 0;
+        this.movie = this.target.find('.movie_list');
+        this.favoriteLogin = this.target.find('.ticket_My');
+        this.favorite = this.target.find('.favorite_list');
+        this.timeArea = this.target.find('.time_inner');
+        this.timeList = this.target.find('.time_list01');
+        this.cineList = this.target.find('.time_list02');
+        this.favoriteCinema = '';
+        this.viewPass = this.target.find('.time_box').find('dd');
+
+        this.step = S.step;
+        this.stepData = S.stepData;
+        this.date = '';
+        this.dateTotal = 0;
+        this.dateCurNo = 0;
+        this.dateCookie = 0;
+        this.eventFalse = true;
+
+        this.screenArray = S.screenData; // 선택 타입
+        this.areaArray = S.areaData; // 선택 지역
+        this.cinemaArray = S.cinemaData // 선택 극장
+        this.cinemaCount = 0; // 선택극장 갯수
+
+        this.cinemaCurNo = 0; // 지역선택 정보
+        this.cinemaSelect = new Array();
+        this.cookieDate = '';
+        this.cookieSort = this.target.find('.time_inner').find('.select_box').find('select').find('option').first().val();
+        this.cookieDraw = this.target.find('.time_inner').find('.select_box').find('select').find('option').first().val();
+
+        this.member = S.member;
+        this.leng = S.leng;
+
+        this.monthArray = new Array('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
+        this.specialType = new Array();
+        this.noMovie = this.timeArea.find('.time_noData');
+        this.noDataText = 'Kính mời quý khách chọn phim để xem lịch chiếu chi tiết tại rạp'; // 상영시간이 조회되지 않았습니다.
+
+        // 회원 정보
+        if (memberInfo.MemberNoOn == 'undefined' || memberInfo.MemberNoOn == '' || memberInfo.MemberNoOn == null) {
+            this.login = false;
+            this.memberID = '';
+        } else {
+            this.login = true;
+            this.memberID = memberInfo.MemberNoOn;
+        };
+
+        this.init();
+    };
+
+    $.fn.ticketReservation.prototype = {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 날짜 정보 호출
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        init: function () {
+            var obj = { MethodName: "GetMoviePlayDates", channelType: "HO", osType: BrowserAgent(), osVersion: navigator.userAgent, multiLanguageID: this.leng };
+            $("#JsonDataResult").text("JsonCall Start !!");
+            JsonCall(CinemaServiceDomain + "/LCWS/Ticketing/TicketingData.aspx", obj, this.jsonData);
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 날짜 데이터 로드
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        jsonData: function (data) {
+            try {
+                cinemaDateArray = data.responseJSON;
+
+                cinemaReservation.dataDraw(true);
+            }
+            catch (e) {
+                //alert('error');
+            }
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 데이터 드로우 - 달력 리스트, 영화관 리스트, 선호영화관 리스트, 영화 리스트
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        dataDraw: function (cookie) {
+            var T = this;
+            var html = '';
+
+            var dateNode = $(cinemaDateArray.Items.Items); //달력 노드
+            var YearData = dateNode[0].Year; // 시작 년도
+            var monthData = dateNode[0].Month; // 시작달
+
+            T.cookieDate = cookieJson.ticketingState.ticketing.playDate; // 날짜 쿠키
+            T.cookieSort = cookieJson.ticketingState.ticketing.sortMovieCode; // 영화 정렬 쿠키
+            T.cookieDraw = cookieJson.ticketingState.ticketing.sortFilmCode; // 회차 정렬 쿠키
+
+            T.calendar.find('fieldset').append('<span class="month" style="top:-47px; left:47px;"><em>' + monthData + '</em><span>' + YearData + ' ' + T.monthArray[monthData - 1] + '</span></span>');
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // 달력 드로우
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            T.dateTotal = Math.ceil(dateNode.length / 7) - 1; // 2018-09-28 이상균 : 14일 일자 표기를 7일로 변경 T.dateTotal = Math.ceil(dateNode.length / 14) - 1;
+            var dateInterval = 0;
+
+            dateNode.each(function (n) {
+                if (T.leng == 'EN') {
+                    var weekData = $(this)[0].DayOfWeekEN; // 요일 string
+                } else {
+                    var weekData = $(this)[0].DayOfWeek; // 요일 string
+                }
+                var YearData2 = $(this)[0].Year; // 시작 년도
+                var monthData2 = $(this)[0].Month; // 시작달
+                var dayData = $(this)[0].Day; // 일 string
+                var playData = $(this)[0].PlayDate; // 일 string
+                var activeDate = $(this)[0].IsPlayDate;
+
+                if (T.cookieDate == playData) T.dateCookie = n;
+
+                html = '<input type="radio" name="day" value="' + playData + '" id="' + T.monthArray[monthData2 - 1] + dayData + '">';
+                html += '<label for="' + T.monthArray[monthData2 - 1] + dayData + '" class="month-picker-label" style="left:' + (n * 120) + 'px"><span>' + weekData + '</span><em>' + dayData + '</em></label>'; // 2018-09-28 이상균 : 14일 일자 표기를 7일로 변경 ( n*60->n*120 )
+                T.calendar.find('.calendarArea').append(html).find('label').eq(n).data({ 'date': playData, 'year': YearData2, 'month': monthData2, 'day': dayData, 'week': weekData, 'active': activeDate });
+
+                if (activeDate == 'N') {
+                    T.calendar.find('.calendarArea').find('input').eq(n).attr('disabled', true);
+                    T.calendar.find('.calendarArea').find('label').eq(n).addClass('noDate');
+                };
+
+                switch ($(this)[0].DayOfWeekEN) { //주말 체크  // 2018-07-20 영문명을 가지고 체크하는 방법으로 수정
+                    case 'SAT':
+                        T.calendar.find('.calendarArea').find('label').eq(n).addClass('sat');
+                        break;
+                    case 'SUN':
+                        T.calendar.find('.calendarArea').find('label').eq(n).addClass('sun');
+                        break;
+                };
+
+                // 2016.04.06 추가
+                if ($(this)[0].HolidayYN == 'Y'
+                    && !T.calendar.find('.calendarArea').find('label').eq(n).hasClass('sat')
+                    && !T.calendar.find('.calendarArea').find('label').eq(n).hasClass('sun')) {
+                    T.calendar.find('.calendarArea').find('label').eq(n).addClass('sun');
+                };
+
+                if (monthData != monthData2) { // 년도 및 월 체인지 체크
+                    monthData = monthData2;
+                    YearData = YearData2;
+                    var pos = T.calendar.find('.calendarArea').find('label').last().position();
+                    T.calendar.find('fieldset').append('<span class="month" style="top:-47px; left:' + ((pos.left) + 47) + 'px"><em>' + monthData2 + '</em><span>' + YearData2 + ' ' + T.monthArray[monthData2 - 1] + '</span></span>');
+
+                    if (activeDate == 'N') T.calendar.find('fieldset').find('> span').last().addClass('noDate');
+
+                    if (n > 0 && n < 3) {
+                        T.calendar.find('fieldset').find('> span').eq(0).hide();
+                    };
+
+                    if (n >= 4 && n <= 6) { // 2018-09-28 이상균 : 14일 일자 표기를 7일로 변경 if (n >= 11 && n <= 13) {
+                        T.calendar.find('fieldset').find('> span').last().find('span').hide();
+                    };
+
+                    if (n > 6) { // 2018-09-28 이상균 : 14일 일자 표기를 7일로 변경 if (n > 13) {
+                        T.calendar.find('fieldset').find('> span').last().hide();
+                    };
+                };
+            });
+
+
+            T.calendar.find('.calendarArea').find('input').first().prop('checked', true);
+            T.calendar.find('.calendarArea').find('label').first().data('date');
+            T.date = T.calendar.find('.calendarArea').find('input').first().val();
+
+            if (dateNode.length < 8) { // 2018-09-28 이상균 : 14일 일자 표기를 7일로 변경 if (dateNode.length < 15) {
+                T.calendar.find('> a').addClass('nodata');
+            } else {
+                if (T.dateCurNo == 0) {
+                    T.calendar.find('.prev').addClass('nodata').siblings('a').removeClass('nodata');
+                } else if (T.dateCurNo == T.dateTotal) {
+                    T.calendar.find('.next').addClass('nodata').siblings('a').removeClass('nodata');
+                } else if (T.dateCurNo > 0 && T.dateCurNo < T.dateTotal) {
+                    T.calendar.find('> a').removeClass('nodata');
+                };
+            };
+
+            T.ticketingPlaySeq();
+
+            T.event();
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 이벤트
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        event: function () {
+            var R = this;
+
+            R.calendar.find('fieldset').on('click', 'input', function () { // 날짜 클릭이벤트
+                if (!$(this).hasClass('noDate')) {
+                    R.date = $(this).next().data('date');
+                    R.ticketingPlaySeq();
+                };
+            });
+
+            R.calendar.find('> a').on('click', function () { // 날짜 이동
+                if (!$(this).hasClass('nodata')) {
+                    if (R.calendar.find('fieldset').find('label').is(':animated')) return false;
+                    if ($(this).hasClass('prev')) {
+                        if (R.dateCurNo > 0) {
+                            R.dateCurNo--;
+                            R.calendar.find('.calendarArea').find('label').animate({ 'left': '+=' + 840 }, 300);
+                            R.calendar.find('fieldset').find('> span').animate({ 'left': '+=' + 840 }, 300);
+                        } else {
+                            $(this).addClass('nodata');
+                            return false;
+                        }
+                    } else {
+                        if (R.dateCurNo < R.dateTotal) {
+                            R.dateCurNo++;
+                            R.calendar.find('.calendarArea').find('label').animate({ 'left': '-=' + 840 }, 300);
+                            R.calendar.find('fieldset').find('> span').animate({ 'left': '-=' + 840 }, 300);
+                        } else {
+                            $(this).addClass('nodata');
+                            return false;
+                        };
+                    };
+                    R.calendarMove();
+                };
+            });
+
+            $('.time_Lk a').click(function () { // 상영정보 보기 버튼
+                $('html, body').stop().animate({ 'scrollTop': $('.time_inner').offset().top }, 300);
+            });
+        },
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 회차정보 리턴
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        platEvent: function () {
+            var T = this;
+
+            this.target.find('.time_box').find('.time_active').off().on('click', function (e) {
+                if ($(this).data('possibilltyYN') == 'N') // 마감
+                {
+                    e.preventDefault(); // 브라우저 이벤트 리셋
+                    return;
+                }
+                else if ($(this).data('possibilltyYN') == 'J') // 상영준비중
+                {
+                    e.preventDefault(); // 브라우저 이벤트 리셋
+                    return;
+                }
+                else if ($(this).data('possibilltyYN') == 'E') // 매진
+                {
+                    e.preventDefault(); // 브라우저 이벤트 리셋
+                    return;
+                }
+
+                if (!$(this).parent().hasClass('soldout')) {
+                    //if ($(this).data('messageYN') > 0) {
+
+                    //    var viewError = new $.fn.modalPopGeneration({ type: 'server', lang: this.leng, btns: true, btnParam1: false, btnParam2: true, serverTitle: '알림', serverMessage: '현재 4D효과가 없는 2D영화가 상영 중이며 일반요금이\n 책정됩니다.', elem: $(this) });
+
+                    //    $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                    //        $(this).parents('.pop_wrap').remove();
+
+                    //        // 부킹 가능여부
+                    //        JsonCall(CinemaServiceDomain + "/LCWS/Ticketing/TicketingData.aspx", obj, T.ticketData);
+                    //    });
+                    //} else {
+                    //    // 부킹 가능여부
+                    //    JsonCall(CinemaServiceDomain + "/LCWS/Ticketing/TicketingData.aspx", obj, T.ticketData);
+                    //};
+
+
+                    // 20150315 수정
+                    var obj = { MethodName: "GetBookPossible", channelType: "HO", osType: BrowserAgent(), osVersion: navigator.userAgent, multiLanguageID: T.leng, screenID: $(this).data('screenCode'), playDate: T.date, playSequence: $(this).data('playSequence') };
+
+                    // 메세지 표시 위한 기능
+                    // 0 : 메세지 기능 없음
+                    // 1 : 수퍼4D관 2D 영화
+                    // 2 : 수퍼4D관 4D 영화
+                    // 3 : 무대인사 (HS, MW 해당) 
+
+                    // 무대인사 코드 1603306 20170619 sunho gv 40 추가 
+                    if ($(this).data('AccompanyTypeCode') == '30') {
+                        $(this).data('messageYN', 3);
+                    } else if ($(this).data('AccompanyTypeCode') == '40') {
+                        $(this).data('messageYN', 40);
+                    } 
+                    
+                    if (Number($(this).data('messageYN')) > 0) {
+                        var serverMessageTxt;
+                        if (Number($(this).data('messageYN')) == 1) {
+                            //serverMessageTxt = '현재 4D효과가 없는 2D영화가 상영 중이며 일반요금이 책정됩니다.';
+                            serverMessageTxt = 'Hiện tại, phim 2D không có hiệu ứng 4D được hiển thị và Atmos có thể phải trả thêm phí.'; //현재 4D효과가 없는 2D영화가 상영 중이며, Atmos는 추가요금이 발생할수 있습니다.
+                        } else if (Number($(this).data('messageYN')) == 2) {
+                            //serverMessageTxt = '4D 영화는 좌석의 움직임이 있는 입체 체감효과와 <br>특수효과가 있어 다음 고객은 관람이 제한됩니다.<br>-임산부/노약자/음주자/심장병, 요통, 고혈압 등의<br> 질환자/신장 100cm 이하 어린이/만 4세미만 <br>(만 4세이상 7세미만은 부모님 동반 하에 관람 가능)';
+                            serverMessageTxt = 'Phim 4D có hiệu ứng lập thể và hiệu ứng đặc biệt với chuyển động của ghế ngồi, do đó, những khách hàng sau đây bị giới hạn - Người mang thai / Người cao tuổi / Người uống / Bệnh nhân bị bệnh tim, đau lưng, tăng huyết áp, v.v ... / Trẻ em cao dưới 100cm / Chỉ dưới 4 tuổi và dưới 7 tuổi có thể được nhìn thấy với cha mẹ)';
+                        
+                        } else if (Number($(this).data('messageYN')) == 3) { // 1603306
+                            serverMessageTxt = 'Đặt phòng có thể bị hủy bỏ 24 giờ trước khi bắt đầu bộ phim.'; // 원활한 진행을 위해 예매취소는 영화시작<br>24시간 이전까지만 가능합니다.
+                        } else if (Number($(this).data('messageYN')) == 4) { // 20160714 4D3D 추가
+                            serverMessageTxt = 'Hiện tại phim 3D không có hiệu ứng 4D đang được hiển thị và giá vé 3D được tính phí.'; //현재 4D효과가 없는 3D영화가 상영 중이며 3D요금이 책정됩니다.
+                        } else if (Number($(this).data('messageYN')) == 40) { // 20170619 sunho gv 
+                            serverMessageTxt = 'Đặt phòng có thể bị hủy bỏ 24 giờ trước khi bắt đầu bộ phim.'; // 원활한 진행을 위해 예매취소는 영화시작<br>24시간 이전까지만 가능합니다.
+                        }
+
+                        var viewError = new $.fn.modalPopGeneration({ type: 'server', lang: this.leng, btns: true, btnParam1: false, btnParam2: true, serverTitle: 'Thông báo', serverMessage: serverMessageTxt, elem: $(this) }); // 알림
+                        $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 부킹 가능여부
+                            JsonCall(CinemaServiceDomain + "/LCWS/Ticketing/TicketingData.aspx", obj, T.ticketData);
+                        });
+                    } else {
+                        // 부킹 가능여부
+                        JsonCall(CinemaServiceDomain + "/LCWS/Ticketing/TicketingData.aspx", obj, T.ticketData);
+                    }
+
+                    $.fn.cookieChanges('del', 'ticketingState.ticketing.playSequenceCode', 'arr');
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.playSequenceCode', { 'cinemaCode': $(this).data('cinemaCode'), 'cinemaName': $(this).data('cinemaName'), 'screenCode': $(this).data('screenCode'), 'movieCode': $(this).data('movieCode'), 'playSequence': $(this).data('playSequence'), 'startTime': $(this).data('startTime'), 'endTime': $(this).data('endTime'), 'sequenceCode': $(this).data('typeCode'), 'weekCode': $(this).data('weekCode'), 'screenDiv': $(this).data('screenDiv'), 'cinemaType': $(this).data('cinemaType'), 'accompanyTypeCode': $(this).data('AccompanyTypeCode') });
+
+
+                    var screenArray = new Array();
+                    var areaArray = new Array();
+                    var cinemaArray = new Array();
+                    var movieArray = new Array();
+
+                    screenArray[0] = '1';
+                    areaArray[0] = T.areaArray;
+                    cinemaArray[0] = $(this).data('cinemaCode');
+                    movieArray[0] = $(this).data('movieCode');
+
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.playDate', $(this).data('playDate')); // 1603307
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.playWeek', $(this).data('playWeek')); // 1603307
+
+                    $.fn.cookieChanges('del', 'ticketingState.ticketing.screenName', 'arr');
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.screenName', $(this).data('screenName'));   // 160607
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.brandName', $(this).data('brandName'));   // 170116
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.screentype', screenArray); // 쿠키 저장
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.areaCodes', areaArray);
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.cinemaCodes', cinemaArray);
+                    $.fn.cookieChanges('add', 'ticketingState.ticketing.movieCodes', movieArray);
+                };
+            });
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // 영화 상세보기(레이어 모달팝업)
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            $(".time_box").find(".btn_detail").on("click", function () {
+                _movieCode = $(this).data("movieCode");
+
+                // 2016.02.25 홍상길 수정 : 새창으로
+                goUrl('/LCHS/Contents/Movie/Movie-Detail-View.aspx?movie=' + _movieCode, '2');
+                //var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/Movie/movie-detail-popup.html', btns: false, btnParam1: false, btnParam2: false });
+            });
+        },
+
+        ticketData: function (data) {// 부킹 가능여부
+            try {
+                timeUtill = data.responseJSON;
+                cinemaReservation.ticketFalse();
+            }
+            catch (e) {
+                //alert('ticketError');
+            }
+        },
+
+        ticketFalse: function () {
+            var timeBull = timeUtill.IsOK;
+            var timeMessage = timeUtill.ResultMessage;
+
+            if (!timeBull) {
+                var timeError = new $.fn.modalPopGeneration({ type: 'server', lang: this.leng, btns: true, btnParam1: false, btnParam2: true, serverTitle: 'Thông báo', serverMessage: timeMessage, elem: $(this) }); // 알림
+
+                $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                    $(this).parents('.pop_wrap').remove();
+
+                    window.location.href = '/LCHS/Contents/ticketing/ticketing.aspx';
+                });
+            } else {
+
+                // 월드타워 할로윈 이벤트 20161028/월드타워/닥터 스트레인지/슈퍼플렉스G/20:00
+                var cinemacode = cookieJson.ticketingState.ticketing.playSequenceCode[0].cinemaCode;
+                var moviecode = cookieJson.ticketingState.ticketing.playSequenceCode[0].movieCode;
+                var specialType = cookieJson.ticketingState.ticketing.playSequenceCode[0].screenDiv;
+                var startTime = cookieJson.ticketingState.ticketing.playSequenceCode[0].startTime;
+                var playDate = cookieJson.ticketingState.ticketing.playDate;
+                var accompanyTypeCode = cookieJson.ticketingState.ticketing.playSequenceCode[0].accompanyTypeCode;
+                var screenCode = cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode; //샤롯데 1관 1201, 샤롯데 2관 1202, 샤롯데프라이빗 11관 1211
+                // 20170214추가 수정20170216  sunho 슈퍼플렉스만 추가 2/11~2/28 20170216 변경 
+                var mYear = playDate.split('-')[0];
+                var mMonth = playDate.split('-')[1] - 1;
+                var mDay = playDate.split('-')[2];
+
+                var playendDate = new Date(mYear, mMonth, mDay);
+                var endDate = new Date(2017, 2, 1);
+
+                var todayTTM = new Date();
+                var endDateTTM = new Date(2020, 10, 1);
+                // 8007 // da nang 8013 // hue            8047 // hoi an              8037 // dong hới               8029 // vinh
+                var listCinemaTTM = [8007,8013,8047,8037,8029];
+                var listCinemaNCQPN1 = [8027,8008];
+                var listCinemaNCQPN2 = [8002,8024,8028,8046,8001,8008,8042,8027,8009,8034,8005,8048,8049,8004,8038,8006,8019,8010,8045,8041];
+                //if (playDate == '2016-10-14' && cinemacode == '1004' && moviecode == '10371' && specialType == '100' && startTime == '20:55') {
+                if (playDate == '2016-10-28' && cinemacode == '1016' && moviecode == '10844' && specialType == '941' && startTime == '20:00') {
+                    var popSet = new $.fn.modalPopGeneration({ type: 'confirm', code: 'LBL9999', lang: 'LL', btns: true, btnParam1: true, btnParam2: true, elem: $(this), execution: comfirmExec, execution2: cancelExec });
+                    function comfirmExec() {
+                        // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                        if (checkLogin() == false) {
+                            openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                        } else {
+                            try {
+                                // 20160920 - FileLog 추가
+                                setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                            } catch (e) { }
+
+                            window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                        };
+                    }
+                    function cancelExec() {
+
+                    }
+                }
+                // 월드타워 샤롯데 프라이빗 알림창 20180206 기능 추가
+                else if (playDate >= '2018-02-15' && playDate <= '2018-02-18' && cinemacode == "1016" && specialType == "300" && screenCode > "1210") {
+                    var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/ticketing/charlotte-private-popup.html?v=20180206001', btns: false, btnParam1: false, btnParam2: false });
+                }
+
+                else if (playendDate.getTime() < endDate.getTime() && specialType == '941' && cinemacode == '1016') {
+                    var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/ticketing/superflex-event.html', btns: false, btnParam1: false, btnParam2: false, elem: $(this) });
+                } else if (accompanyTypeCode == '240' || accompanyTypeCode == '250') {//20170502 sunho 츄잉쳇 조건 추가
+                    var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/ticketing/chewing-chat.html', btns: false, btnParam1: false, btnParam2: false });
+                    setTimeout(function (e) {
+                        $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                        $('.pop_wrap .pop_btn_close').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                    }, 1500);
+                }
+                else if (cinemacode == "1016" && specialType == "960") {//20170502 sunho 씨네패밀리
+                    var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/ticketing/cinefamily-popup.html', btns: false, btnParam1: false, btnParam2: false });
+                    setTimeout(function (e) {
+                        $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                        $('.pop_wrap .pop_btn_close').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                    }, 1500);
+                }
+                else if (accompanyTypeCode =='20') {//20170627 sunho 엄마랑 아기랑 
+                    var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/ticketing/mom-and-baby-popup.html', btns: false, btnParam1: false, btnParam2: false });
+                    setTimeout(function (e) {
+                        $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                        $('.pop_wrap .pop_btn_close').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                    }, 1500);
+                }
+                else if (cinemacode == "9062" && specialType == "982") {//20170721 sunho 원주무관 S-cube 일때 조건
+                    var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/ticketing/s-cube.html', btns: false, btnParam1: false, btnParam2: false });
+                    setTimeout(function (e) {
+                        $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                        $('.pop_wrap .pop_btn_close').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                    }, 1500);
+                }
+                else if (cinemacode == "9062" && specialType == "984") {//20170721 sunho 원주무관 G-cube 일때 조건
+                    var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/View/ticketing/g-cube.html', btns: false, btnParam1: false, btnParam2: false });
+                    setTimeout(function (e) {
+                        $('.pop_wrap .btnc_confirm').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                        $('.pop_wrap .pop_btn_close').off().on('click', function () {
+                            $(this).parents('.pop_wrap').remove();
+
+                            // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                            if (checkLogin() == false) {
+                                openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                            } else {
+                                try {
+                                    // 20160920 - FileLog 추가
+                                    setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                                } catch (e) { }
+
+                                window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                            };
+                        });
+
+                    }, 1500);
+                }
+                else if ( (cinemacode == "8048" || cinemacode == "8049") && moviecode == "10473" && todayTTM < endDateTTM )
+                // else if ( (cinemacode == "8048" || cinemacode == "8049" || cinemacode == "8009") && moviecode == "10442" )
+                {
+                    // popup rap minh khai kosmo tiec trang mau
+                    var popSet = new $.fn.modalPopGeneration({ type: 'confirm', serverTitle: 'Tiệc Trăng Máu' , serverMessage: 'Chương trình ưu đãi đồng giá vé 60.000đ được áp dụng khi mua vé trực tiếp tại quầy.', lang: 'CS', btns: true, btnParam1: true, btnParam2: true, elem: $(this), execution: comfirmExec, execution2: cancelExec });
+                    function comfirmExec() {
+                        if (checkLogin() == false) {
+                            openLoginPopupWithParam(undefined, '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                        } else {
+                            try {
+                                setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "Lựa chọn cuối cùng," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1); // 최종선택
+                            } catch (e) { }
+                            window.location.href = '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                        };
+                    }
+                    function cancelExec() {
+                        T.timeArea.find('.theater_time ').find('li').removeClass('on');
+                    }
+                }
+                else if ( (playDate == '20201202' || playDate == '20201203') && moviecode == "10473" && listCinemaTTM.includes(cinemacode)  )
+                {
+                    // popup rap minh khai kosmo tiec trang mau
+                    var popSet = new $.fn.modalPopGeneration({ type: 'confirm', serverTitle: 'Tiệc Trăng Máu' , serverMessage: 'QUÝ KHÁCH VUI LÒNG LIÊN HỆ TRỰC TIẾP TẠI QUẦY ĐỂ NHẬN VÉ XEM PHIM MIỄN PHÍ.', lang: 'CS', btns: true, btnParam1: false, btnParam2: true, elem: $(this), execution: cancelExec });
+                    function comfirmExec() {
+                        if (checkLogin() == false) {
+                            openLoginPopupWithParam(undefined, '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                        } else {
+                            try {
+                                setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "Lựa chọn cuối cùng," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1); // 최종선택
+                            } catch (e) { }
+                            window.location.href = '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                        };
+                    }
+                    function cancelExec() {
+                        T.timeArea.find('.theater_time ').find('li').removeClass('on');
+                    }
+                }
+                else if ( (playDate == '20201227' ) && listCinemaNCQPN1.includes(cinemacode) && moviecode == "12345" )
+                {
+
+                    var popSet = new $.fn.modalPopGeneration({ type: 'confirm', serverTitle: 'Người Cần Quên Phải Nhớ' , serverMessage: 'QUÝ KHÁCH VUI LÒNG LIÊN HỆ TRỰC TIẾP TẠI QUẦY ĐỂ NHẬN VÉ XEM PHIM MIỄN PHÍ.', lang: 'CS', btns: true, btnParam1: true, btnParam2: true, elem: $(this), execution: comfirmExec, execution2: cancelExec });
+                    function comfirmExec() {
+                        if (checkLogin() == false) {
+                            openLoginPopupWithParam(undefined, '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                        } else {
+                            try {
+                                setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "Lựa chọn cuối cùng," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1); // 최종선택
+                            } catch (e) { }
+                            window.location.href = '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                        };
+                    }
+                    function cancelExec() {
+                        T.timeArea.find('.theater_time ').find('li').removeClass('on');
+                    }
+                }
+                else if ( (playDate == '20201228' || playDate == '20201229' || playDate == '20201230' || playDate == '20201231') && moviecode == "12345" && listCinemaNCQPN2.includes(cinemacode)  )
+                {
+                    var popSet = new $.fn.modalPopGeneration({ type: 'confirm', serverTitle: 'Người Cần Quên Phải Nhớ' , serverMessage: 'QUÝ KHÁCH VUI LÒNG LIÊN HỆ TRỰC TIẾP TẠI QUẦY ĐỂ NHẬN VÉ XEM PHIM MIỄN PHÍ.', lang: 'CS', btns: true, btnParam1: true, btnParam2: true, elem: $(this), execution: comfirmExec, execution2: cancelExec });
+                    function comfirmExec() {
+                        if (checkLogin() == false) {
+                            openLoginPopupWithParam(undefined, '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                        } else {
+                            try {
+                                setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "Lựa chọn cuối cùng," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1); // 최종선택
+                            } catch (e) { }
+                            window.location.href = '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                        };
+                    }
+                    function cancelExec() {
+                        T.timeArea.find('.theater_time ').find('li').removeClass('on');
+                    }
+                }
+                else {
+                    // 비호그인시 로그인 팝업 추가 홍상길 - 2015.11.26
+                    if (checkLogin() == false) {
+                        openLoginPopupWithParam(undefined, CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx', 'Type01')
+                    } else {
+                        try {
+                            // 20160920 - FileLog 추가
+                            setFileLog(T.target.find('.time_box').find('.time_active').data('cinemaCode'), T.target.find('.time_box').find('.time_active').data('cinemaName'), 1, "영화관상세 최종선택," + cookieJson.ticketingState.ticketing.playDate + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].screenCode + "," + cookieJson.ticketingState.ticketing.playSequenceCode[0].playSequence, 1);
+                        } catch (e) { }
+
+                        window.location.href = CinemaServerDomain + '/LCHS/Contents/ticketing/person-seat-select.aspx';
+                    };
+                }
+            };
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 달력 슬라이드 시 이동버튼 콘트롤
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        calendarMove: function () {
+            var R = this;
+
+            if (R.dateCurNo == 0) {
+                R.calendar.find('.prev').addClass('nodata').siblings('a').removeClass('nodata');
+            } else if (R.dateCurNo == R.dateTotal) {
+                R.calendar.find('.next').addClass('nodata').siblings('a').removeClass('nodata');
+            } else if (R.dateCurNo > 0 && R.dateCurNo < R.dateTotal) {
+                R.calendar.find('> a').removeClass('nodata');
+            }
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 회차 데이터 호출
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        ticketingPlaySeq: function () {
+            var cinemaData = this.screenArray + '|' + Number(this.areaArray) + '|' + this.cinemaArray;
+            var movieData = '';
+
+            var obj = { MethodName: "GetPlaySequence", channelType: "HO", osType: BrowserAgent(), osVersion: navigator.userAgent, playDate: this.date, cinemaID: cinemaData, representationMovieCode: movieData };
+            //var obj = { MethodName: "GetPlaySequence", channelType: "homepage", osType: BrowserAgent(), osVersion: navigator.userAgent, playDate: '2015-10-16', cinemaID: '1|1|1004,1|1|1016', representationMovieCode: '1H55,1H66' };
+            JsonCall(CinemaServiceDomain + "/LCWS/Ticketing/TicketingData.aspx", obj, this.playData);
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 회차 데이터 로드
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        playData: function (data) {
+            try {
+                cinemaPlayUtill = data.responseJSON;
+
+                cinemaReservation.playCinemaDraw();
+            }
+            catch (e) {
+                alert('error');
+            }
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 회차 정보 디폴트 리셋
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        playReset: function () {
+            this.noMovie.hide();
+
+            var drawIdx = this.target.find('.time_inner').find('.select_box').find('select').find('option').first().text();
+            var drawData = this.target.find('.time_inner').find('.select_box').find('select').find('option').first().val();
+            this.target.find('.time_inner').find('.select_box').find('select').val(drawData).change();
+            this.target.find('.time_inner').find('.select_box').find('> a').text(drawIdx);
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 회차 정보 드로우 - 영화관
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        playCinemaDraw: function () {
+            T = this;
+            var html = '';
+
+            var cinemaNode = $(cinemaPlayUtill.PlaySeqsHeader.Items); // 상영관정보 노드
+            var timeNode = $(cinemaPlayUtill.PlaySeqs.Items); // 회차 노드
+
+            //cinemaNode.sort(function (a, b) { // 상영관정보 정렬
+            //    return a.BookingSortSequence < b.BookingSortSequence ? -1 : a.BookingSortSequence > b.BookingSortSequence ? 1 : 0;
+            //});
+
+            timeNode.sort(function (a, b) { // 회차 정렬
+                return a.StartTime < b.StartTime ? -1 : a.StartTime > b.StartTime ? 1 : 0;
+            });
+
+            if (cinemaNode.length < 1) {
+                T.cineList.find('.time_aType').remove();
+                T.noMovie.show().find('span').text(T.noDataText);
+                return false;
+            } else {
+                T.timeArea.find('.time_aType').remove();
+                T.cineList.show();
+                T.noMovie.hide();
+            };
+
+            var cinemaTotal = 0;
+            var cinemaBull = '', movieBull = '', filmBull = ''; // 영화관순 정렬 변수
+            var timeBull = '', cineBull = ''; // 영화순 정렬 변수
+
+            // 20170725 - 샤롯데/샤롯데프라이빗 표기 수정
+            // 샤롯데, 샤롯데/샤롯데프라이빗, 샤롯데프라이빗 형태로 수정
+            var tempCinemaDDArray = new Array();
+            var tempScreenDDArray = new Array();
+            var tempMovieDDArray = new Array();
+            var tempScrrenDDArrayIndex = 0;
+
+            cinemaNode.each(function (n) {
+                var cinemaCode = $(this)[0].CinemaID;
+                var movieCode = $(this)[0].MovieCode;
+                var screenCode = $(this)[0].ScreenID;
+                var movieRep = $(this)[0].RepresentationMovieCode;
+                var brandYN = $(this)[0].BrandYN;                                                                   // 160628
+                if (T.leng == 'EN') {
+                    var arrayName = $(this)[0].ScreenNameUS;
+                    var cinemaName = $(this)[0].CinemaNameUS;
+                    var movieName = $(this)[0].MovieNameUS;
+                    var filmName = $(this)[0].FilmNameUS;
+                    var viewingName = $(this)[0].ViewGradeNameUS;
+                    var soundName = $(this)[0].SoundTypeNameUS;
+                    var fourdName = $(this)[0].FourDTypeNameUS;
+                    var divisionName = $(this)[0].TranslationDivisionNameUS;
+                    var accompanyName = $(this)[0].AccompanyTypeNameUS;
+                    var screenName = $(this)[0].ScreenDivisionNameUS;
+                    var brandName = $(this)[0].BrandNm_US;
+                } else {
+                    var arrayName = $(this)[0].ScreenName;
+                    var cinemaName = $(this)[0].CinemaName;
+                    var movieName = $(this)[0].MovieName;
+                    var filmName = $(this)[0].FilmName;
+                    var viewingName = $(this)[0].ViewGradeName;
+                    var soundName = $(this)[0].SoundTypeName;
+                    var fourdName = $(this)[0].FourDTypeName;
+                    var divisionName = $(this)[0].TranslationDivisionName;
+                    var accompanyName = $(this)[0].AccompanyTypeName;
+                    var screenName = $(this)[0].ScreenDivisionName;
+                    var brandName = $(this)[0].BrandNm;
+                }
+                var filmCode = $(this)[0].FilmCode;
+                var soundCode = $(this)[0].SoundTypeCode;
+                var fourdCode = $(this)[0].FourDTypeCode;
+                var divisionCode = $(this)[0].TranslationDivisionCode;
+                var accompanyCode = $(this)[0].AccompanyTypeCode;
+                var specialCode = $(this)[0].ScreenDivisionCode;
+                var translationCode = $(this)[0].TranslationDivisionCode;
+                var viewingCode = $(this)[0].ViewGradeCode;
+                var totalCode = $(this)[0].TotalSeatCount;
+
+                if (viewingCode == '0') viewingCode = 'all'; // 전체관람가 변환
+
+                if (!T.cineList.find('div').hasClass('time' + cinemaCode)) { // 1차 "영화관" 정보 드로우
+                    timeBull = cinemaCode;
+                    movieBull = '';
+
+                    html = '<div class="time_aType time' + cinemaCode + '">';
+                    if (T.step != 1) {
+                        html += '   <h4 class="time_tit">' + cinemaName + '</h4>';
+                    };
+                    html += '   <dl class="time_line movie' + movieRep + '">';
+                    html += '       <dt>';
+                    html += '           <span class="grade_' + viewingCode + '">' + viewingName + '</span>' + movieName;
+                    html += '           <a href="javascript:void(0)" class="btn_detail" title="Xem thông tin chi tiết phim"><img src="/LCHS/Image/Btn/btn_time_view.png" alt="Chi tiết phòng hát"></a>'; // 새창 열림, 상영관 상세보기
+                    html += '       </dt>';
+                    html += '   </dl>';
+                    html += '</div>';
+
+                    T.cineList.append(html).find('dl').last().data({ 'cinemaName': cinemaName }).find(".btn_detail").data({ 'movieCode': movieRep });
+                };
+
+                if (!T.cineList.find('.time' + cinemaCode).find('.time_line').hasClass('movie' + movieRep)) { // 1차 "영화관" 정보 드로우
+                    html = '<dl class="time_line movie' + movieRep + '">';
+                    html += '   <dt>';
+                    html += '       <span class="grade_' + viewingCode + '">' + viewingName + '</span>' + movieName;
+                    html += '       <a href="javascript:void(0)" class="btn_detail" title="Xem thông tin chi tiết phim"><img src="/LCHS/Image/Btn/btn_time_view.png" alt="Chi tiết phòng hát"></a>'; // 새창 열림, 상영관 상세보기
+                    html += '   </dt>';
+                    html += '</dl>';
+
+                    T.cineList.find('.time' + cinemaCode).append(html).find('dl').last().data({ 'cinemaName': cinemaName }).find(".btn_detail").data({ 'movieCode': movieRep });
+
+                };
+
+                // 20170719 - 상영시간표 상영관 병합
+                var tempSepcialCode = specialCode;
+                var tempSoundCode = soundCode;
+
+                if (specialCode == 301) {
+                    tempSepcialCode = 300;
+                }
+                else if (specialCode == 940) {
+                    // 수퍼플렉스 -> 일반관
+                    tempSepcialCode = 100;
+                }
+                else if (specialCode == 970) { // 20171013 cok - 중국영화상영관 일반관 병합
+                	// 중국영화상영관 -> 일반관
+                	tempSepcialCode = 100;
+                }
+
+                // ATMOS 표기 제외, 2D에 포함
+                if (soundCode == 300) {
+                    tempSoundCode = 100;
+                }
+
+                // 2차 영화관에 대한 영화리스트 드로우
+                // 20170719 - 상영시간표 상영관 병합
+                // specialCode -> tempSpecialCode로 변경
+                //if (!T.cineList.find('.movie' + movieRep).find('dd').hasClass('screen' + filmCode + '' + translationCode + '' + specialCode + '' + soundCode + '' + accompanyCode + '' + brandYN)) {
+                if (!T.cineList.find('.movie' + movieRep).find('dd').hasClass('screen' + filmCode + '' + translationCode + '' + tempSepcialCode + '' + tempSoundCode + '' + accompanyCode + '' + brandYN)) { // 170102
+                    //html = '<dd class="screen' + filmCode + '' + translationCode + '' + specialCode + '' + soundCode + '' + accompanyCode + '' + brandYN + ' film' + filmCode + '">'; // 170102
+                    // 20170719 - 상영시간표 상영관 병합
+                    // specialCode -> tempSpecialCode로 변경
+                    html = '<dd class="screen' + filmCode + '' + translationCode + '' + tempSepcialCode + '' + tempSoundCode + '' + accompanyCode + '' + brandYN + ' film' + filmCode + '">'; // 170102
+                    html += '   <ul class="cineD1">';
+                    html += '       <li>' + filmName + ' </li>';
+                    html += '       <li>' + divisionName + '</li>';
+                    // 20170717 - Atmos 표기 제외
+                    if (soundCode > 100 && soundCode != 300) {
+                        html += '       <li>' + soundName + '</li>';
+                    };
+                	// 20170719 - 수퍼플렉스 표기 제외
+                	// 20171013 cok - 중국영화상영관 표기 제외
+                    if (specialCode > 100 && (specialCode != 940 && specialCode != 970)) {
+                        // 20170719 - 상영시간표 상영관 병합
+                        if (specialCode == 300 || specialCode == 301) {
+                            // 20170725 - 샤롯데/샤롯데프라이빗 표기 수정
+                            // 샤롯데, 샤롯데/샤롯데프라이빗, 샤롯데프라이빗 형태로 수정
+                            tempCinemaDDArray[tempScrrenDDArrayIndex] = cinemaCode;
+                            tempMovieDDArray[tempScrrenDDArrayIndex] = movieCode;
+                            tempScreenDDArray[tempScrrenDDArrayIndex] = 'screen' + filmCode + '' + translationCode + '' + tempSepcialCode + '' + tempSoundCode + '' + accompanyCode + '' + brandYN;
+                            tempScrrenDDArrayIndex++;
+
+                            //html += '       <li class="pit1"><strong>샤롯데/샤롯데프라이빗</strong></li>';
+                            html += '       <li class="pit1"><strong>Charlotte</strong></li>'; // 샤롯데
+                        }
+                        else {
+                            html += '       <li class="pit1">' + screenName + '</li>';
+                        }
+                    };
+                    if (accompanyCode > 10) {
+                        html += '       <li>' + accompanyName + '</li>';
+                    };
+                    // 브랜드관이 아닌 경우 0
+                    if (brandYN != '0') {                                                                           // 160628
+                        html += '       <li>' + brandName + '</li>';
+                    }
+                    html += '   </ul>';
+                    html += '   <ul class="theater_time list' + movieCode + '" screenDiv="' + specialCode + '">';
+                    html += '   </ul>';
+                    html += '</dd>';
+
+                    T.cineList.find('.time' + cinemaCode).find('.movie' + movieRep).append(html);
+                };
+            });
+
+            timeNode.each(function (n) { // 3차 각 영화에 대한 회차정보 드로우
+                var categoryCode = $(this)[0].CategoryCode;
+                var subCode = $(this)[0].SubCode;
+                var cinemaCode = $(this)[0].CinemaID;
+                var screenCode = $(this)[0].ScreenID;
+                var movieCode = $(this)[0].MovieCode;
+                var movieRep = $(this)[0].RepresentationMovieCode;
+                var startTime = $(this)[0].StartTime;
+                var endTime = $(this)[0].EndTime;
+                var seatToal = $(this)[0].TotalSeatCount;
+                var seatReserved = $(this)[0].BookingSeatCount;
+                var possibilltyYN = $(this)[0].IsBookingYN;
+                var filmCode = $(this)[0].FilmCode;
+                var specialCode = $(this)[0].ScreenDivisionCode;
+                var translationCode = $(this)[0].TranslationDivisionCode;
+                var accompanyCode = $(this)[0].AccompanyTypeCode;
+                var soundCode = $(this)[0].SoundTypeCode;
+                var playSequence = $(this)[0].PlaySequence;
+                var typeCode = $(this)[0].SequenceNoGroupCode;
+                var weekCode = $(this)[0].WeekendDivisionCode;
+                var messageYN = $(this)[0].MessageYN;
+                var playDate = $(this)[0].PlayDt; // 1603306
+                var AccompanyTypeCode = $(this)[0].AccompanyTypeCode; // 1603306
+                var playDay = $(this)[0].playDay; // 1603307
+                var brandYN = $(this)[0].BrandYN;                                                                   // 160628
+
+                if (T.leng == 'EN') {
+                    var typeName = $(this)[0].SequenceNoGroupNameUS;
+                    var screenName = $(this)[0].ScreenNameUS;
+                    var soundName = $(this)[0].SoundTypeNameUS;
+                    var brandName = $(this)[0].BrandNm_US;      // 170116
+                    var cinemaName = $(this)[0].CinemaNameUS;   // 170116
+                } else {
+                    var typeName = $(this)[0].SequenceNoGroupName;
+                    var screenName = $(this)[0].ScreenName;
+                    var soundName = $(this)[0].SoundTypeName;
+                    var brandName = $(this)[0].BrandNm;      // 170116
+                    var cinemaName = $(this)[0].CinemaName;   // 170116
+                };
+
+                if (parseInt(screenCode, 10) < 10) screenCode = "0" + screenCode;
+
+                html = '';
+
+                if (possibilltyYN == 'N' || possibilltyYN == 'E') {
+                    html += '<li class="soldout">';
+                } else {
+                    html += '<li>';
+                }
+                html += '<a href="javascript:void(0);" class="time_active t' + n + '">';
+                if (screenName.length > 4) {                                                                        // 160608
+                    html += '   <span class="cineD2 brand">';
+                } else {
+                    html += '   <span class="cineD2">';
+                }
+                //html += '       <em>' + screenName + '</em>';
+
+                // // 20170123 - 브랜드관이 아닌 경우 0
+                if (brandYN != '0') {                                                                           // 160628
+                    // 20170123 - 브랜드관 명칭 표기하지 않음
+                    try {
+                        var tempScreenNo = screenCode.toString().substr(4, 2);
+                        // 20170719 - 상영관 병합, ATmos 관옆에 표기
+                        if (soundCode == 300) {
+                            html += '<em>' + Number(tempScreenNo) + '<em> | <em>' + soundName + '</em>';
+                        }
+                        else {
+                            html += '<em>' + Number(tempScreenNo) + '</em>';
+                        }
+                    } catch (e) {
+                        // 20170719 - 상영관 병합, ATmos 관옆에 표기
+                        if (soundCode == 300) {
+                            html += '<em>' + screenName + '<em> | <em>' + soundName + '</em>';
+                        }
+                        else {
+                            html += '<em>' + screenName + '</em>';
+                        }
+                    }
+                    //html += '       <li>' + brandName + '</li>';
+                }
+                else {
+                    // 20170719 - 상영관 병합, ATmos 관옆에 표기
+                    if (soundCode == 300) {
+                        html += '<em>' + screenName + '<em> | <em>' + soundName + '</em>';
+                    }
+                    else {
+                        html += '<em>' + screenName + '</em>';
+                    }
+                }
+
+                //if (soundCode > 100) {            // 161209
+                //    html += '       <em>' + soundName + '</em>';
+                //};
+                html += '</span>';
+                switch (typeCode) {
+                    case 30:    // 조조
+                        html += '<span class="clock2">';
+                        html += '<em class="seat iri">' + typeName + '</em>';
+                        break;
+                    case 90:    // 심야
+                        html += '<span class="clock2">';
+                        html += '<em class="seat ini">' + typeName + '</em>';
+                        break;
+                    default:
+                        html += '<span class="clock">';
+                };
+
+                html += startTime + '<span> ~ ' + endTime + '</span></span>';
+
+                if (possibilltyYN == 'N') {
+                    if (T.leng == 'EN') {
+                        html += '<span class="ppNum">Finish</span>';
+                    } else {
+                        html += '<span class="ppNum">Hết hạn đặt</span>'; // 예매마감
+                    };
+                } else if (possibilltyYN == 'E') {
+                    if (T.leng == 'EN') {
+                        html += '<span class="ppNum">Finish</span>';
+                    } else {
+                        html += '<span class="ppNum">Đã bán hết</span>'; // 매진
+                    };
+                } else if (possibilltyYN == 'J') {
+                    if (T.leng == 'EN') {
+                        html += '<span class="ppNum">Ready</span>';
+                    } else {
+                        html += '<span class="ppNum">Chuẩn bị</span>'; // 상영준비중
+                    };
+                } else {
+                    // 20170607 전체 좌석수와 예매된 좌석수가 -1보다 클 경우에만 추가
+                    if (seatToal > -1 && seatReserved > -1) {
+                        if (T.leng == 'EN') {
+                            html += '<span class="ppNum"><em class="color_brown" title="Seats">' + seatReserved + '</em> / ' + seatToal + ' Seats</span>';
+                        } else {
+                            html += '<span class="ppNum"><em class="color_brown" title="Kiểm tra chỗ ngồi của bạn">' + seatReserved + '</em> / ' + seatToal + ' Ghế ngồi</span>'; // 좌석 확인
+                        };
+                    }
+                };
+
+                html += '</a>';
+                html += '</li>';
+
+                // 20170719 - 상영시간표 상영관 병합
+                var tempSCDivSpecialCode = specialCode;
+                var tempSCDivSoundCode = soundCode;
+
+                if (specialCode == 301) {
+                    // 샤롯데, 샤롯데프라이빗 -> 샤롯데/샤롯데프라이빗으로
+                    tempSCDivSpecialCode = 300;
+                }
+                else if (specialCode == 940) {
+                    // 수퍼플렉스 -> 일반관
+                    tempSCDivSpecialCode = 100;
+                }
+                else if (specialCode == 970) { // 20171013 cok - 중국영화상영관 일반관 병합
+                	// 중국영화상영관 -> 일반관
+                	tempSCDivSpecialCode = 100;
+                }
+
+                if (soundCode == 300) {
+                    tempSCDivSoundCode = 100;
+                }
+
+
+                //var cinemaName = $('#cinemaName1').text();
+                var scDiv = T.cineList.find('.time' + cinemaCode).find('.movie' + movieRep).find('.screen' + filmCode + '' + translationCode + '' + tempSCDivSpecialCode + '' + tempSCDivSoundCode + '' + accompanyCode + '' + brandYN).find('.theater_time').attr('screenDiv'); // 1603235 // 171602
+                // 1603213
+                T.cineList.find('.movie' + movieRep).find('.screen' + filmCode + '' + translationCode + '' + tempSCDivSpecialCode + '' + tempSCDivSoundCode + '' + accompanyCode + '' + brandYN).find('.theater_time').append(html)
+                .find('a').last().data({ 'screenName': screenName, 'brandName': brandName, 'playWeek': playDay, 'playDate': playDate, 'AccompanyTypeCode': AccompanyTypeCode, 'possibilltyYN': possibilltyYN, 'messageYN': messageYN, 'cinemaName': cinemaName, 'cinemaCode': cinemaCode, 'movieCode': movieCode, 'screenCode': screenCode, 'playSequence': playSequence, 'startTime': startTime, 'endTime': endTime, 'typeCode': typeCode, 'weekCode': weekCode, 'screenDiv': scDiv, 'cinemaType': T.cineList.find('.time' + cinemaCode).find('.movie' + movieRep).find('.screen' + filmCode + '' + translationCode + '' + specialCode + '' + accompanyCode).find('.pit1').text(), 'specialCode': specialCode });
+            });
+
+            // 20170725 - 샤롯데/샤롯데프라이빗 표기 수정
+            // 샤롯데, 샤롯데/샤롯데프라이빗, 샤롯데프라이빗 형태로 수정 
+            var charlotteFlag = false;
+            var charlottePrivateFlag = false;
+            for (var i = 0 ; i < tempScreenDDArray.length ; i++) {
+
+                $('.movie' + tempMovieDDArray[i]).find($('.' + tempScreenDDArray[i])).find('a').each(function (n) {
+                    if ($(this).data('specialCode') == 300) {
+                        charlotteFlag = true;
+                    }
+
+                    if ($(this).data('specialCode') == 301) {
+                        charlottePrivateFlag = true;
+                    }
+                });
+
+                if (charlotteFlag && !charlottePrivateFlag) {
+                    $('.movie' + tempMovieDDArray[i]).find($('.' + tempScreenDDArray[i])).find('.pit1').find('strong').html('Charlotte') // 샤롯데
+                }
+                else if (!charlotteFlag && charlottePrivateFlag) {
+                    $('.movie' + tempMovieDDArray[i]).find($('.' + tempScreenDDArray[i])).find('.pit1').find('strong').html('Charlotte Private') // 샤롯데프라이빗
+                }
+                else if (charlotteFlag && charlottePrivateFlag) {
+                    $('.movie' + tempMovieDDArray[i]).find($('.' + tempScreenDDArray[i])).find('.pit1').find('strong').html('Charlotte/Charlotte Private')
+                }
+
+                charlotteFlag = false;
+                charlottePrivateFlag = false;
+            }
+
+            T.cineList.find('.time_line').each(function () {
+                if ($(this).find('dd').length == 0) {
+                    $(this).append(T.noData);
+                };
+            });
+
+            //T.cineList.find('.time_line').find('.theater_time').each(function () {
+            //    var firstVar = 0;
+            //    var lastVar = 0;
+
+            //    for (i = 0; i < Math.round($(this).find('li').length / 4) ; i++) {
+            //        firstVar = lastVar + 8;
+            //        lastVar = firstVar + 8;
+            //        $(this).find('li').slice(firstVar, lastVar).addClass('bg_Btype');
+            //    };
+            //});
+
+            if (T.step == 0) {
+                T.playMovieDraw();
+            } else {
+                T.filmSort(T.cookieDraw);
+                T.platEvent();
+            }
+        },
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // 회차 정보 정렬
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        filmSort: function (sort) {
+            this.target.find('.time_box').find('> div').show().find('.time_line').show().find('dd').show();
+
+            if (cookieJson.ticketingState.ticketing.sortFilmCode != 'all' && cookieJson.ticketingState.ticketing.sortFilmCode != '') {
+                this.target.find('.time_box').find('.time_noData').siblings().show().find('.time_line').find('dd').show().find('.movie_sort').find('> li').show();
+
+                this.target.find('.time_line').find('dd').show().not('.film' + sort).hide();
+            } else {
+                this.target.find('.time_box').find('> div').show().find('.time_line').show().find('dd').show();
+            };
+
+            this.target.find('.time_line').each(function () {
+                if ($(this).find('dd:visible').length == 0) {
+                    $(this).hide();
+                } else {
+                    $(this).show();
+                }
+            });
+
+            this.target.find('.time_box').find('> div').each(function () {
+                if ($(this).find('.time_line:visible').length == 0) {
+                    $(this).hide();
+                } else {
+                    $(this).show();
+                }
+            });
+        },
+    };
+});

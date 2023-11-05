@@ -1,0 +1,399 @@
+﻿/**************************************
+* 영화 공통 Script
+* 작성자: 박규홍
+**************************************/
+/****************************************
+* 공통 상수 선언
+****************************************/
+NOW_MENU_TYPE = "movie";
+
+/****************************************
+* 공통 함수 선언
+****************************************/
+//메시지 표시
+showMessage = function (messageCode, focusTarget) {
+	var modal1 = new $.fn.modalPopGeneration({
+		type: 'message',
+		code: messageCode,
+		btns: true,
+		btnParam1: false,
+		btnParam2: true,
+		elem: $(focusTarget)
+	});
+}
+
+// Confirm modal 표시
+// params>
+//		messageCode: 메시지 코드
+//		focusTarget: 창 닫은 후 포커스 대상 jquery 방식 selector string
+//		confirmRecallFunction: 확인 버튼 클릭시 호출 함수
+//		isCancel: 취소 버튼 표시 여부, 기본값 true
+//		cancelRecallFunction: 취소 버튼 클릭시 호출 함수
+// return>
+showConfirm = function (messageCode, focusTarget, confirmRecallFunction, isCancel, cancelRecallFunction) {
+	if (isCancel == undefined) isCancel = true;
+	if (cancelRecallFunction == undefined) cancelRecallFunction = null;
+
+	var confirmModal = new $.fn.modalPopGeneration({
+		type: 'confirm',
+		code: messageCode,
+		btns: true,
+		btnParam1: isCancel,
+		btnParam2: true,
+		elem: $(focusTarget),
+		execution: confirmRecallFunction,
+		execution2: cancelRecallFunction
+	});
+}
+
+//새창 열기
+//params>
+//		url: 대상 페이지 url
+//return>
+openLink = function (url) {
+	window.open(url, "_blank");
+}
+
+////영화상세로 이동-----------------> common/common.js 로 이동
+////params>
+////		code: 영화코드
+////return>
+//goToMovie = function (code) {
+//	$(location).attr("href", "/LCHS/Contents/Movie/Movie-Detail-View.aspx?movie=" + code);
+//}
+
+////예매로 이동 -----------------> common/common.js 로 이동
+////params>
+////		code: 영화코드
+////return>
+//goToTiketing = function (code) {
+//	$.fn.cookieReset();
+//	var movieArray = cookieJson.ticketingState.ticketing.movieCodes;
+//	movieArray.unshift(code);
+//	$.fn.cookieChanges('add', 'cookieJson.ticketingState.ticketing.movieCodes', movieArray);
+//	$(location).attr("href", "/LCHS/Contents/ticketing/ticketing.aspx");
+//}
+
+////스페셜영화관으로 이동 ----------> common/common.js 로 이동
+////params>
+////		code:	스페셜관 코드
+////return>
+//goToSpecial = function (code) {
+//	$(location).attr("href", "/LCHS/Contents/Cinema/charlotte-special-cinema.aspx");
+//	//alert('스페셜관으로 이동\n, Special Code = ' + code);
+//}
+
+//이벤트 상세로 이동
+//params>
+//		parameterString: 페이지 이동시 첨부할 Get type parameter string
+//return>
+goToEvent = function (parameterString) {
+	//CinemaServerDomain
+    alert("Truy cập trang chi tiết sự kiện\n" + parameterString); //이벤트 상세 페이지로 이동
+}
+
+
+//대상 ul엘리먼트 내의 li 엘리먼트를 cnt 만큼 남기고 삭제한다.
+//params>
+//		targetUl: 대상 Ul 엘리먼트 클레스 또는 id, jquery selecter용
+//		cnt: 남길 li 수
+//return>
+removeListItem = function (targetUl, cnt) {
+	while ($(targetUl).find("li").length > cnt) {
+		$(targetUl).find("li:last").remove();
+	}
+}
+
+/**************************************
+* 스페셜 아이콘 , model & class
+**************************************/
+//스페셜관 버튼 및 아이콘 정보 모델
+//code: 스페셜관 코드
+//nameVN: 스페셜관 이름
+//alert: 이미지 alert 표시 text
+//btnOff: 비활성 버튼 이미지 Url
+//btnOn: 활성 버튼 이미지 Url
+//icon: icon 이미지명
+//banner: banner Url
+//active: 버튼 활성 여부, true - 활성, false - 비활성, 기본값 false
+SpecialImage = function (code, nameVN, alertTxt, btnOff, btnOn, icon, banner, active) {
+	this.Code = code;						//코드
+	this.NameVN = nameVN;					//이름
+	this.Alert = alertTxt;					//이미지 alert text
+	this.ButtonOff = btnOff;				//비활성 버튼 이미지 URL
+	this.ButtonOn = btnOn;					//활성 버튼 이미지 URL
+	this.Icon = icon;						//Icon 이미지 파일명
+	this.Banner = banner;					//배너 URL
+	this.Active = active ? true : false;	//버튼 활셩여부
+}
+
+//스페셜관관련 이미지 정보 제공 Class
+Special = function () {
+	//이미지 정보 리스트에 항목을 추가한다.
+	//params>
+	//		code: 스페셜관 코드
+	//		nameVN: 스페셜관 이름
+	//		alert: 이미지 alert 표시 text
+	//		btnOff: 비활성 버튼 이미지 Url
+	//		btnOn: 활성 버튼 이미지 Url
+	//		icon: icon 이미지명
+	//		banner: banner Url
+	//		active: 버튼 활성 여부
+	//				, true - 활성, false - 비활성, 기본값 false
+	//return>
+	this.appendSpecialInfo = function (code, nameVN, alert, btnOff, btnOn, icon, banner, active) {
+		this.ImageInfors[this.ImageInfors.length] = new SpecialImage(code, nameVN, alert, btnOff, btnOn, icon, banner, active);
+	}
+
+	//버튼의 상태 값을 설정한다.
+	//params>
+	//		code: 스페셜관 Code
+	//		active: 상태 설정값 true | false (활성여부)
+	//return> 
+	//		true: 정상처리, false: 제공 code에 해당하는 값이 없을 때
+	this.setButtonStatus = function (code, active) {
+		for (var key in this.ImageInfors) {
+			if (this.ImageInfors[key].Code == code) {
+				this.ImageInfors[key].Active = active;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	//해당 코드의 버튼을 활성 처리한다.
+	//params>
+	//		code: 스페셜관 코드
+	//return>
+	//		true: 정상처리, false: 제공 code에 해당하는 값이 없을 때
+	this.activeButton = function (code) {
+		return this.setButtonStatus(code, true);
+	}
+
+	//해당 코드의 버튼을 비활성 처리한다.
+	//params>
+	//		code: 스페셜관 코드
+	//return>
+	//		true: 정상처리, false: 제공 code에 해당하는 값이 없을 때
+	this.deactiveButton = function (code) {
+		return this.setButtonStatus(code, false);
+	}
+
+	//해당 코드의 배너 이미지 Url 값을 설정한다.
+	//params>
+	//		code: 스페셜관 코드
+	//		bannerUrl: 스페셜과 배너이미지 URL
+	//return>
+	//		true: 정상처리, false: 제공 code에 해당하는 값이 없을 때
+	this.setBanner = function (code, bannerUrl) {
+		for (var key in this.ImageInfors) {
+			if (this.ImageInfors[key].Code == code) {
+				this.ImageInfors[key].Banner = bannerUrl;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	//해당코드의 IconUrl 반환
+	//params>
+	//		code: 스페셜관 Code
+	//return>
+	this.getIconUrl = function (code) {
+		var result = null;
+		try {
+			for (var key in this.specialInfors) {
+				if (this.ImageInfors[key].Code == code) {
+					result = this.ImageInfors[key].Icon;
+					break;
+				}
+			}
+		} catch (e) {
+			result = "";
+			CheckException(e, "Special.getSpecialImage");
+		} finally {
+			return result;
+		}
+	}
+
+	//해당코드의 스페셜관 이미지 정보를 반환한다.
+	//params>
+	//		code: 스페셜관 Code
+	//return>
+	this.getSpecialImage = function (code) {
+		var result = null;
+		try {
+			for (var key in this.ImageInfors) {
+				if (this.ImageInfors[key].Code == code) {
+					result = this.ImageInfors[key];
+					break;
+				}
+			}
+		} catch (e) {
+			CheckException(e, "Special.getSpecialImage");
+		} finally {
+			return result;
+		}
+	}
+
+	/**************************************
+	* 클레스 초기화
+	**************************************/
+	//이미지 정보 저장용 배열 선언
+	this.ImageInfors = new Array();
+
+	//CinemaServerDomain : 공통변수 참조 
+	//이미지 정보 추가
+	this.appendSpecialInfo("941", "Super PLEX G", "Super PLEX G", "/LCHS/Image/Thum/img_sinfo_01_off.jpg", "/LCHS/Image/Thum/img_sinfo_01_on.jpg", "/LCHS/Image/Icon/icon_special_08.png");
+	this.appendSpecialInfo("940", "Super PLEX", "Super PLEX", "/LCHS/Image/Thum/img_sinfo_02_off.jpg", "/LCHS/Image/Thum/img_sinfo_02_on.jpg", "/LCHS/Image/Icon/icon_special_05.png");
+	this.appendSpecialInfo("930", "Super 4D", "Super 4D", "/LCHS/Image/Thum/img_sinfo_03_off.jpg", "/LCHS/Image/Thum/img_sinfo_03_on.jpg", "/LCHS/Image/Icon/icon_special_04.png");
+	this.appendSpecialInfo("980", "Super S", "Super S", "/LCHS/Image/Thum/img_sinfo_13_off.jpg", "/LCHS/Image/Thum/img_sinfo_13_on.jpg", "/LCHS/Image/Icon/icon_special_02.png");//20170717 sunho super s  추가 
+	this.appendSpecialInfo("300", "CHARLOTTE", "CHARLOTTE", "/LCHS/Image/Thum/img_sinfo_06_off.jpg", "/LCHS/Image/Thum/img_sinfo_06_on.jpg", "/LCHS/Image/Icon/icon_special_06.png");
+	this.appendSpecialInfo("960", "cine Family", "cine Family", "/LCHS/Image/Thum/img_sinfo_08_off.jpg", "/LCHS/Image/Thum/img_sinfo_08_on.jpg", "/LCHS/Image/Icon/icon_special_09.png");
+	this.appendSpecialInfo("200", "cine Couple", "cine Couple", "/LCHS/Image/Thum/img_sinfo_09_off.jpg", "/LCHS/Image/Thum/img_sinfo_09_on.jpg", "/LCHS/Image/Icon/icon_special_10.png");
+	this.appendSpecialInfo("950", "cineBiz", "cineBiz", "/LCHS/Image/Thum/img_sinfo_10_off.jpg", "/LCHS/Image/Thum/img_sinfo_10_on.jpg", "/LCHS/Image/Icon/icon_special_11.png");
+}
+
+/**************************************
+* 이미지 뷰어 Class
+**************************************/
+//이미지 뷰어 생성자
+//params>
+//return>
+$.fn.ImageViewer = function (option) {
+    var S = $.extend({ target: '.movile_box', viewerPrev: '.btnc_prev', viewerNext: '.btnc_next', imageThumnail: '.main_info_slide', trayPrev: '.btn_prev', trayNext: '.btn_next', traySize: 5 }, option);
+
+    this.target = $(S.target);
+    this.ViewerTray = this.target.find('.bannerImg');
+    this.ViewerItem = this.ViewerTray.find('li');
+    this.ViewerPrev = this.target.find(S.viewerPrev);
+	this.ViewerNext = this.target.find(S.viewerNext);
+	this.ViewerSize = this.ViewerTray.width() + 50;
+
+	this.ImageThumnail = $(S.imageThumnail);
+	this.ThumnailTray = this.ImageThumnail.find('ul');
+	this.ThumnailTItem = this.ThumnailTray.find('li');
+	this.ThumnailPrev = this.ImageThumnail.find(S.trayPrev);
+	this.ThumnailNext = this.ImageThumnail.find(S.trayNext);
+	this.ThumnailSize = 139;
+
+	this.ThumnailPageSize = S.traySize;
+
+	this.curNo = 0;
+	this.total = this.ViewerTray.find('li').length;
+	this.nowPage = 0;
+	this.LastPage = Math.floor(this.total / 6);
+
+	this.init();
+};
+
+//이미지 뷰어 메소드
+$.fn.ImageViewer.prototype = {
+    init: function () {
+        var T = this;
+        
+        T.ViewerItem.each(function (n) {
+            $(this).css({ 'left': T.ViewerSize * n });
+
+            if (n != 0) $(this).fadeTo(100, 0.3);
+
+            T.ThumnailTItem.eq(n).css({ 'left': T.ThumnailSize * n });
+        });
+
+        T.ViewerItem.first().clone().removeClass().addClass('dummy_last').appendTo(T.ViewerItem.parent()).css({ 'left': T.ViewerSize * T.total}).fadeTo(100, 0.3);
+        T.ViewerItem.last().clone().addClass('dummy_first').appendTo(T.ViewerItem.parent()).css({ 'left': -(T.ViewerSize) }).fadeTo(100, 0.3);
+
+        T.ViewerItem = T.ViewerTray.find('li');
+
+        if (T.total - 1 > 5) {
+            T.ThumnailNext.addClass('on');
+        } else {
+            T.ThumnailNext.removeClass('on');
+        };
+
+        T.event();
+    },
+
+    event: function () {
+        var T = this;
+
+        T.ViewerPrev.on('click', function () {
+            if (T.curNo > 0 && !T.ViewerItem.is(':animated')) {
+                T.curNo--;
+                T.ViewerItem.clearQueue().fadeTo(500, 0.3).eq(T.curNo).clearQueue().fadeTo(500, 1);
+                T.ViewerItem.clearQueue().animate({ 'left': '+=' + T.ViewerSize }, 500);
+                T.ThumnailTItem.eq(T.curNo).find('a').addClass('on').parent().siblings().find('a').removeClass('on');
+
+                T.reset('rihgt');
+            };
+        });
+
+        T.ViewerNext.on('click', function () {
+            if (T.total - 1 > T.curNo && !T.ViewerItem.is(':animated')) {
+                T.curNo++;
+                T.ViewerItem.clearQueue().fadeTo(500, 0.3).eq(T.curNo).clearQueue().fadeTo(500, 1);
+                T.ViewerItem.clearQueue().animate({ 'left': '-=' + T.ViewerSize }, 500);
+                T.ThumnailTItem.eq(T.curNo).find('a').addClass('on').parent().siblings().find('a').removeClass('on');
+
+                T.reset('left');
+            };
+
+        });
+
+        T.ThumnailPrev.on('click', function () {
+            T.ViewerPrev.trigger('click');
+        });
+
+        T.ThumnailNext.on('click', function () {
+            T.ViewerNext.trigger('click');
+        });
+
+        T.ThumnailTItem.on('click', 'a', function () {
+            var idx = $(this).parent().index();
+            if (T.curNo != idx) {
+                var insMove = idx - T.curNo;
+                T.curNo = idx;
+                T.ThumnailTItem.eq(T.curNo).find('a').addClass('on').parent().siblings().find('a').removeClass('on');
+
+                T.ViewerItem.clearQueue().fadeTo(500, 0.3).eq(T.curNo).clearQueue().fadeTo(500, 1);
+                T.ViewerItem.clearQueue().animate({ 'left': '-=' + (T.ViewerSize * insMove) }, 500);
+
+                T.reset('none');
+            };
+        });
+
+
+        if (T.total > 1) {
+            T.ViewerPrev.fadeOut(300).next().fadeIn(300);
+            T.ThumnailPrev.removeClass('on').siblings('a').addClass('on');
+        } else {
+            T.ViewerPrev.fadeOut(300).next().fadeOut(300);
+            T.ThumnailPrev.removeClass('on').siblings('a').removeClass('on');
+        };
+    },
+
+    reset: function (align) {
+        var T = this;
+
+        if (T.curNo == 0) {
+            T.ViewerPrev.fadeOut(300).next().fadeIn(300);
+            T.ThumnailPrev.removeClass('on').siblings('a').addClass('on');
+        } else if (T.curNo == T.total - 1) {
+            T.ViewerPrev.fadeIn(300).next().fadeOut(300);
+            T.ThumnailPrev.addClass('on').siblings('a').removeClass('on');
+        } else if (T.curNo > 0 && T.curNo < T.total - 1) {
+            T.ViewerPrev.fadeIn(300).next().fadeIn(300);
+            T.ThumnailPrev.addClass('on').siblings('a').addClass('on');
+        };
+
+        if (align == 'left') {
+            if ((T.curNo / 6) - Math.floor(T.curNo / 6) == 0) {
+                T.ThumnailTItem.clearQueue().animate({ 'left': '-=' + (T.ThumnailSize * 6)}, 500);
+            };
+        } else if (align == 'rihgt') {
+            if (((T.curNo + 1) / 6) - Math.floor((T.curNo + 1) / 6) == 0) {
+                T.ThumnailTItem.clearQueue().animate({ 'left': '+=' + (T.ThumnailSize * 6) }, 500);
+            };
+        }
+    },
+};

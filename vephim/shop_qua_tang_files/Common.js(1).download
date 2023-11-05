@@ -1,0 +1,2342 @@
+﻿
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 디자인 셀렉트
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+$.fn.designSelectElement2 = function () {
+    var selectWrap = '.select_box';
+    $("select").each(function () {
+        $(this).wrap('<div class="select_box"></div>').parents(selectWrap).css({ 'width': $(this).outerWidth() }).prepend('<ul></ul>').prepend('<a href="javascript:void(0)"></a>');
+        var eTotal = $(this).find('option').length - 1;
+        var idx = $(this).find('option:selected').index();
+
+        $(this).find('option').each(function (n) {
+            //if (n == 0) $(this).parents(selectWrap).find('> a').attr('href', '#' + $(this).text()).html($(this).text()).addClass('ui_fold_btn');
+            $(this).parents(selectWrap).find('ul').append('<li data-optionVal="' + $(this).val() + '" ><a href="javascript:void(0)">' + $(this).text() + '</a></li>');
+        });
+
+        //var val = '#' + $(this).parents(selectWrap).find('option').eq(idx).text()
+        var val = "javascript:void(0)"
+        $(this).parents(selectWrap).find('> a').attr('href', val).html($(this).parents(selectWrap).find('option').eq(idx).text()).addClass('ui_fold_btn').next('ul').find('li').eq(idx).find('a').addClass('on');
+
+        $(this).hide();
+    });
+    $(selectWrap).find('> a').off("click").on('click', function () {
+        if (!$(this).hasClass('active')) {
+            $(this).addClass('active').siblings('ul').css({ 'width': $(this).parent(selectWrap).width() }).slideDown(300);
+        } else {
+            $(this).removeClass('active').siblings('ul').slideUp(300);
+        };
+    });
+    $(selectWrap).find('ul a').off("click").on('click', function () {
+        var idx = $(this).parent().index();
+        var txt = $(this).text();
+        var value = $(this).parent().attr("data-optionVal")
+        //var value = $(this).parents(selectWrap).find('select').find('>option').eq(idx).val();
+
+        $(this).parents(selectWrap).find('> a').removeClass('active').text(txt).next('ul').slideUp(300).find('a').removeClass('on').eq(idx).addClass('on');
+        //$(this).parents(selectWrap).find('select').find('option[value="' + value + '"]').attr("selected", "selected");//.find('option').eq(idx).attr('selected','selected');
+        $(this).parents(selectWrap).find('select').find('option[value="' + value + '"]').prop("selected", true);//.find('option').eq(idx).attr('selected','selected');
+        $(this).parents(selectWrap).find('select').change();
+    });
+    $(selectWrap).off("mouseleave").on('mouseleave', function () {
+        $(this).find('> a').removeClass('active').siblings('ul').slideUp(300);
+    });
+};
+
+/**************************************
+* 시네마 공통 Script
+* 작성자: 정승원
+**************************************/
+/****************************************
+* 공통 상수 선언
+****************************************/
+var _initYN = "Y";      //Y:설정된 값으로 셋팅 , N: 무시
+var _classifictionCode = CLASSIFICATION_SWEET_CODE;//10(스위트샾), 20(기프트샾)
+var _detailDivisionCode = ""
+var _cinemaID = ""              //영화관코드
+var _displayItemID = ""              //상춤코드
+var _categoryCode = ""          //상품메뉴코드
+var _displayMiddleClassification = "";      //상품 카테고리
+var _discountSellPrice = 0              //판매가격
+var _totalSellPrice = 0                 //총금액
+var _productNode = ""                   //상품 상세 Json(쿠키에 담기위해 전역변수로 선언함)
+var _presentObj = ""                     //선물하기
+var _optionTemplateCode = ""                     //선물하기
+
+var itemBaseType = ""; // ItemBaseType
+var initQuantity = 0; //
+var NOW_MENU_TYPE = "cinema-mall"
+/****************************************
+* 선호영화관
+****************************************/
+drawFavorite = function () {
+    try {
+        // memberInfo = { UserID: "lotte" };
+        // 20160214 김태완 - 비회원 처리 추가
+        var loginGubun = checkLoginGubun();
+        // loginGubun 값의 유형
+        // 1 : 정회원
+        // 2 : 간편회원(준회원)
+        // 3 : 비회원
+        if (memberInfo != "" && memberInfo != null && loginGubun != "3") { //회원일경우
+            var obj = {
+                MethodName: "GetMyFavoriteCinema",
+                channelType: "HO",
+                osType: BrowserAgent(),
+                osVersion: navigator.userAgent,
+                memberOnNo: memberInfo.MemberNoOn
+            };
+            var FavoriteCinemasUtil = JsonReturnDataSync(CinemaServiceDomain + '/LCWS/MyCinema/MyCinemaData.aspx', obj);
+            //console.log(FavoriteCinemasUtil)
+            FavoriteCinemasUtil = FavoriteCinemasUtil.responseJSON;
+
+            var favoriteNode = $(FavoriteCinemasUtil.Cinemas.Items); //선호영화관 노드
+            var len = favoriteNode.length;
+
+            $(".ticket_My").find(".login").find(".favorite_list").html("")
+
+            if (len == 0) {
+                $(".ticket_My").find(".login").find(".favorite_list").hide()
+                $(".ticket_My").find(".login").prepend('<span class="txtCiadd">더 편리한 사용을 위해, MY 영화관을 등록해주세요.</span>')
+            } else {
+                favoriteNode.each(function (n) {
+                    var divisionCode = $(this)[0].DivisionCode; //영화관 타입-일반:100,스페셜:200
+                    var detailDivisionCode = $(this)[0].DetailDivisionCode; //지역코드
+                    var cinemaID = $(this)[0].CinemaID; //영화관 코드
+                    var cinemaName = $(this)[0].CinemaName; //선호영화관 명 - 한국어
+                    var cinemaNameUS = $(this)[0].CinemaNameUS; //선호영화관 명 - 영문
+                    if (Language == "EN") {
+                        // cinemaName = cinemaNameUS;
+                    }
+
+                    var htmlString = "";
+                    var sb = new StringBuilder();
+
+                    // StringBuilder 시작
+                    sb.Append('<li>');
+                    sb.AppendFormat('<a href="javascript:void(0)"><em>{0}</em></a>', cinemaName);
+                    sb.Append('</li>');
+                    htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+                    sb.RemoveAll();									//StringBuilder 초기화
+
+                    $(".ticket_My").find(".login").find(".favorite_list").append(htmlString).find('>li').last().find('a')
+                        .data(
+                            {
+                                'divisionCode': divisionCode
+                                , 'detailDivisionCode': detailDivisionCode
+                                , 'cinemaID': cinemaID
+                                , 'cinemaNameUS': cinemaNameUS
+                                , 'cinemaName': cinemaName
+                                , 'cinemaSelect': divisionCode + detailDivisionCode + cinemaID
+                            }
+                        );
+
+                });
+            }
+            $(".ticket_My").find(".logOut").hide()
+            $(".ticket_My").find(".login").show()
+
+            //선호 영화관 이벤트
+            $(".ticket_My").find(".login").find(".favorite_list").find(">li").find("a").on("click", function () {
+                var divisionCode = $(this).data("divisionCode");
+                var detailDivisionCode = $(this).data("detailDivisionCode");
+                var cinemaID = $(this).data("cinemaID");
+                clickFavoriteCinema(divisionCode, detailDivisionCode, cinemaID)
+
+            })
+        } else if (loginGubun == "3") {// 비회원 로그인시 메세지 추가
+            $(".ticket_My").find(".logOut").html('<span class="txtCiadd">Bạn có thể kiểm tra rạp hát MY bằng cách đăng nhập với tư cách thành viên đầy đủ.<!--정회원으로 로그인 하시면 MY영화관을 확인 하실 수 있습니다.--> </span>');
+            $(".ticket_My").find(".logOut").show()
+            $(".ticket_My").find(".login").hide()
+        } else {
+            $(".ticket_My").find(".logOut").show()
+            $(".ticket_My").find(".login").hide()
+        }
+    } catch (e) {
+        CheckException(e, "drawFavorite", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+/****************************************
+* 지역 그리기
+****************************************/
+drawDivision = function () {
+    try {
+        //영화관 대분류 리스트 정보
+        var obj = {
+            MethodName: "GetCinemaDivision"
+			, channelType: "HO"
+			, osType: BrowserAgent()
+			, osVersion: navigator.userAgent
+        };
+        var divisionUtil = JsonReturnDataSync(CinemaServiceDomain + '/LCWS/Cinema/CinemaData.aspx', obj);
+        divisionUtil = divisionUtil.responseJSON;
+        divisionUtil = divisionUtil.AreaDivisions.Items;
+
+        //json 정렬
+        divisionUtil.sort(function (a, b) { // 지역 정렬
+            return a.SortSequence < b.SortSequence ? -1 : a.SortSequence > b.SortSequence ? 1 : 0;
+        });
+
+        $(".theater_zone").html("")
+        $(divisionUtil).each(function (n) {
+            var divisionCode = $(this)[0].DivisionCode; // 관별 대분류 코드(전체:1)
+            var detailDivisionCode = $(this)[0].DetailDivisionCode; //지역코드 // 대분류 별 중분류 코드(전체일 경우: 지역, 스페셜관일 경우: 스페셜 타입 코드)
+            var cinemaCount = $(this)[0].CinemaCount; //영화관 갯수
+            var groupName = $(this)[0].GroupName; //지역이름;
+            var groupNameUS = $(this)[0].GroupNameUS; //지역이름;
+            if (Language == "EN") {
+                // groupName = groupNameUS
+            }
+            // 10보다 작을경우
+            var num = (n + 1);
+            if (num < 10) { num = "0" + num; }
+            var cssName = "zone_" + num;
+
+            //처음 지역을 Default로 설정
+            var on = "";
+            if (n == 0) on = "on";
+
+
+            var htmlString = "";
+            var sb = new StringBuilder();
+
+            // StringBuilder 시작
+            sb.Append('<li>');
+            sb.AppendFormat('<span class="area_zone {0}" ><a class="{1} da{2}" href="javascript:void(0)">{3}({4})</a></span>', cssName, on, detailDivisionCode, groupName, cinemaCount);
+            sb.AppendFormat('<div class="area_cont {0}">', on);
+            sb.AppendFormat('<ul class="area_list d{0}"></ul>', detailDivisionCode);
+            sb.Append('</div>');
+            sb.Append('</li>');
+
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();									//StringBuilder 초기화
+
+            $(".theater_zone").append(htmlString).find('> li').last().find('.area_zone').find('> a')
+                .data(
+                {
+                    'detailDivisionCode': detailDivisionCode
+                    , 'groupName': groupName
+                    , 'groupNameUS': groupNameUS
+                    , 'divisionCode': divisionCode
+                }
+                );
+
+        });
+
+        //지역 클릭 이벤트
+        $(".theater_zone").find(".area_zone").find(">a").on("click", function () {
+            var divisionCode = $(this).data("divisionCode")
+            var detailDivisionCode = $(this).data("detailDivisionCode")
+            clickDetailDivision(divisionCode, detailDivisionCode)
+
+        })
+
+    } catch (e) {
+        CheckException(e, "drawDivision", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+
+
+}
+
+/****************************************
+* 영화관 그리기
+****************************************/
+drawCinema = function () {
+    try {
+        //영화관 리스트 정보
+        var obj = {
+            MethodName: "GetCinemaItems"
+			, channelType: "HO"
+			, osType: BrowserAgent()
+			, osVersion: navigator.userAgent
+        };
+        var cinemaItemsUtil = JsonReturnDataSync(CinemaServiceDomain + '/LCWS/Cinema/CinemaData.aspx', obj);
+        cinemaItemsUtil = cinemaItemsUtil.responseJSON;
+        cinemaItemsUtil = cinemaItemsUtil.Cinemas.Items;
+        cinemaItemsUtil.sort(function (a, b) { // 지역 정렬
+            return a.SortSequence < b.SortSequence ? -1 : a.SortSequence > b.SortSequence ? 1 : 0;
+        });
+
+        $(cinemaItemsUtil).each(function (n) {
+            var divisionCode = $(this)[0].DivisionCode; // 관별 대분류 코드(전체:1)
+            var detailDivisionCode = $(this)[0].DetailDivisionCode; //지역코드 // 대분류 별 중분류 코드(전체일 경우: 지역, 스페셜관일 경우: 스페셜 타입 코드)
+            var cinemaID = $(this)[0].CinemaID; //영화관 코드
+            var smartOrderYN = $(this)[0].SmartOrderYN
+            var cinemaName = $(this)[0].CinemaName; //지역이름
+            var cinemaNameUS = $(this)[0].CinemaNameUS; //지역이름
+            if (Language == "EN") {
+                //cinemaName = cinemaNameUS
+            }
+            var smartOrderHtml = ""
+            if (smartOrderYN == "Y") {
+                smartOrderHtml = '<span class="icon_smart"><img src="/LCHS/Image/icon/icon_smart.png" alt="Thứ tự thông minh" /></span>' // 스마트 오더
+            }
+
+            var htmlString = "";
+            var sb = new StringBuilder();
+
+            // 남원주, 누리꿈 매점이 없어서 그리지 않는다.
+            //if (cinemaName.indexOf("남원주") > -1 || cinemaName.indexOf("누리꿈") > -1) {
+            //	//console.log(cinemaName);
+            //} else {
+            sb.Append('<li>');
+            sb.AppendFormat('<a href="javascript:void(0)" class="cinema{0}">{1} {2}</a>', cinemaID, cinemaName, smartOrderHtml);
+            sb.Append('</li>');
+
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();									//StringBuilder 초기화
+
+            $(".theater_zone").find('.d' + detailDivisionCode).append(htmlString).find('a').last().addClass(divisionCode + detailDivisionCode + cinemaID)
+                .data(
+                {
+                    'cinemaID': cinemaID
+                    , 'detailDivisionCode': detailDivisionCode
+                    , 'divisionCode': divisionCode
+                    , 'cinemaNameUS': cinemaNameUS
+                    , 'cinemaName': cinemaName
+                    , 'cinemaSelect': divisionCode + detailDivisionCode + cinemaID
+                    , 'smartOrderYN': smartOrderYN  // 2016.04.18 스위트샵 안내 문구 수정
+                }
+            );
+            //}
+
+
+        });
+        //영화관 클릭 이벤트
+        $(".theater_zone").find(".area_cont").find(".area_list").find("li").find(">a").on("click", function () {
+            var divisionCode = $(this).data("divisionCode")
+            var detailDivisionCode = $(this).data("detailDivisionCode")
+            var cinemaID = $(this).data("cinemaID")
+            var smartOrderYN = $(this).data("smartOrderYN");
+
+            var isClassOn = $(this).is(".on")
+            var len = $(".theater_zone").find(".area_cont").find(".area_list").find("li").find(">a.on").length
+
+            // var str = "clickCinema(divisionCode, detailDivisionCode, cinemaID)"
+            //aa(clickCinema, { "divisionCode": divisionCode, "detailDivisionCode": detailDivisionCode, "cinemaID": cinemaID })
+            var obj = new Object
+            obj.divisionCode = divisionCode
+            obj.detailDivisionCode = detailDivisionCode
+            obj.cinemaID = cinemaID
+
+            // 2016.04.18 스위트샵 안내 문구 수정
+            if (smartOrderYN == 'Y') {
+                $('.cinema_etc').show();
+            } else {
+                $('.cinema_etc').hide();
+            }
+
+            if (isClassOn == false) {
+                //담은 상품이 있고 다른 영화관을 선택할경우 메세지 노출(다른 지역을 선택한다면 담음 상품 삭제 )
+                //쿠키여부 판단후 메세제 노출
+                //if (len > 0 && COOKIE_CART_NODE != "" && COOKIE_CART_NODE != null) {
+                ////if (cookieCart == "") {
+                //    var popSet = new $.fn.modalPopGeneration({
+                //        type: 'confirm'
+                //        , code: 'COM1100'
+                //        , lang: 'KR'
+                //        , btns: true, btnParam1: true, btnParam2: true
+                //        , elem: $(this)
+                //        , closed: '.pop_btn_close'// 상단 close 무력화 - 현재 페이지에 머물면 안되므로
+                //        , execution: deleteCinemaMallCookie
+                //        , execution_info: obj
+                //        //, execution: a
+                //    });
+
+                //} else {
+
+                //    clickCinema(obj)
+                //}
+                if (len > 0 && COOKIE_CART_NODE != "" && COOKIE_CART_NODE != null) {
+                    deleteCinemaMallCookie(obj)
+                } else {
+                    clickCinema(obj)
+                }
+
+            }
+
+        })
+
+        //초기셋팅(설정된 영화클릭)
+        if (_initYN == "Y") {
+            setCinemaInit()
+        }
+    } catch (e) {
+        CheckException(e, "drawCinema", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+
+}
+
+/****************************************
+* 상품 AJAX
+****************************************/
+getCinemaMallLists = function () {
+    // _classifictionCode(임시데이터임): 01(스위트샾), 02(기프트샾)
+    try {
+        var obj = "";
+        // 시네마몰 - 스위트샵 리스트
+        if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+            obj = {
+                MethodName: "CinemaMallSweetItemList"
+				, channelType: "HO"
+				, osType: BrowserAgent()
+				, osVersion: navigator.userAgent
+                //, multiLanguageID: Language
+                // 20160219 김태완 - 스위트샵,기프트샵 Language 고정
+	        	, multiLanguageID: "LL" // Local Language
+                , classificationCode: _classifictionCode
+				, cinemaID: _cinemaID.toString()
+            };
+        } else {
+            obj = {
+                MethodName: "CinemaMallGiftItemList"
+				, channelType: "HO", osType: BrowserAgent()
+				, osVersion: navigator.userAgent
+                //, multiLanguageID: Language
+                // 20160219 김태완 - 스위트샵,기프트샵 Language 고정
+	        	, multiLanguageID: "LL" // Local Language
+                , classificationCode: _classifictionCode
+            };
+        }
+
+        GetData("cinemamall", obj, returnJsonDataSweet, "")
+        //JsonCall(CinemaServiceDomain + "/LCWS/CinemaMall/CinemaMallData.aspx", obj, returnJsonDataSweet)
+    } catch (e) {
+        CheckException(e, "getCinemaMallLists", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+/****************************************
+* 스윗트 상품 DATA 받기
+* @param
+*		data : json Data
+****************************************/
+returnJsonDataSweet = function (data) {
+    // try {
+    try {
+        var topNode = data.responseJSON
+        var cinemaMallItemListsNode = topNode.CinemaMallItemLists;
+        //var isOK = CinemaMallNode.IsOK;
+        //console.log(topNode);
+        var resultMessage = topNode.ResultMessage; // 결과 메세지
+
+        $(".product_wrap").find(".tab_st07").html("")
+        $(".product_wrap").find(".product_inner").find(">h3").remove()
+        $(".product_wrap").find(".product_inner").find(">ul").remove()
+        $(".product_wrap").find(".product_inner").find(">div:gt(0)").remove()
+
+        //if (isOK == 'true') {
+        var cinemaMallClassificationsNode = cinemaMallItemListsNode.CinemaMallClassifications.Items        //상품 카테고리 노드
+        var cinemaMallItemsNode = cinemaMallItemListsNode.Items.Items                              //상품 리스트
+
+        var noDataMsg = "Không có sản phẩm đã đăng ký." // 등록된 상품이 없습니다
+        if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+            noDataMsg = "Không có sản phẩm đã đăng ký. Vui lòng chọn một rạp chiếu phim khác." // 등록된 상품이 없습니다. 다른 영화관을 선택해주세요.
+        }
+
+        //카테고리 그리기
+
+        if (cinemaMallClassificationsNode.length == 0) {
+            var productHtml = ""
+            productHtml += '<div class="srchResult_none">'
+            productHtml += '<span class="txt">' + noDataMsg + '</span>'
+            productHtml += '</div>'
+            $(".product_wrap").find(".product_inner").append(productHtml)
+        }
+
+        $(cinemaMallClassificationsNode).each(function (n) {
+
+            var displayLargeClassificationCode = $(this)[0].DisplayLargeClassificationCode
+            var displayMiddleClassificationCode = $(this)[0].DisplayMiddleClassificationCode
+            var displayMiddleClassificationName = $(this)[0].DisplayMiddleClassificationName
+            //var listImageUrl = $(this)[0].ListImageUrl
+            var listImageUrl = cinemaMallCategoryImg(displayLargeClassificationCode, n)
+            var itemCount = $(this)[0].ItemCount
+
+            // 20160215 김태완 -  최초 첫번째로 설정
+            //var len = listImageUrl.toLowerCase().indexOf("_on.")
+            //var className = ""
+            //if (len >= 0) {
+            //    className = "on"
+            //}
+            var className = ""
+            if (n == 0) {
+                className = "on"
+            }
+
+            var htmlString = "";
+            var sb = new StringBuilder();
+
+            sb.AppendFormat('<li class="{0}">', className);
+            sb.AppendFormat('<a href="javascript:void(0)" class="btn{0}">', displayMiddleClassificationCode);
+            //if (listImageUrl != "") {
+            //    sb.AppendFormat('<img src="{0}" alt="{1}">', listImageUrl, displayMiddleClassificationName);
+            //}
+            sb.AppendFormat('{0}</a>', displayMiddleClassificationName);
+            sb.Append('</li>');
+
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();
+
+            $(".product_wrap").find(".tab_st07").append(htmlString)
+            $(".product_wrap").find(".tab_st07").find("li").last().find("a").data({
+                displayMiddleClassificationCode: displayMiddleClassificationCode
+                , displayLargeClassificationCode: displayLargeClassificationCode
+            })
+
+            var productHtml = '<h3 class="cinema_stit pt30" id="m' + displayMiddleClassificationCode + '">' + displayMiddleClassificationName + '</h3>'
+            if (itemCount > 0) {
+                productHtml += '<ul class="product_slist p' + displayMiddleClassificationCode + '"></ul>'
+            } else {
+
+                productHtml += '<div class="srchResult_none">'
+                productHtml += '<span class="txt">Không có sản phẩm đã đăng ký. Vui lòng chọn một rạp chiếu phim khác.</span>' // 등록된 상품이 없습니다. 다른 영화관을 선택해주세요.
+                productHtml += '</div>'
+            }
+
+            $(".product_wrap").find(".product_inner").append(productHtml)
+
+        })
+
+        if ($('#container').find('ul').hasClass('tab_st07')) {
+            var liSum = $('.tab_st07').find('li').length;
+            var liWid = $('.tab_st07').width();
+            //console.log(liWid + ' : ' + liSum);
+            $('.tab_st07').find('a').css('width', liWid / liSum);
+        };
+
+        //상품 그리기
+        //console.log(cinemaMallItemsNode)
+        $(cinemaMallItemsNode).each(function (n) {
+
+            var displayLargeClassificationCode = $(this)[0].DisplayLargeClassificationCode;
+            var displayMiddleClassificationCode = $(this)[0].DisplayMiddleClassificationCode;
+            var displayItemID = $(this)[0].DisplayItemID;
+            var displayItemName = $(this)[0].DisplayItemName;
+            var currentSellPrice = $(this)[0].CurrentSellPrice;
+            var discountSellPrice = $(this)[0].DiscountSellPrice;
+            var packageYN = $(this)[0].PackageYN;
+            var packageConstitutionProduct = $(this)[0].PackageConstitutionProduct;
+            var itemImageUrl = $(this)[0].ItemImageUrl;
+            // 20161010 - Alt 추가
+            var itemImageAlt = $(this)[0].ItemImageAlt;
+            //console.log(cinemaMallItemsNode);
+            var useRestrictionsDayName = ""
+            // 20160225 김태완 - 사용 기간 수정 배열 없어짐
+            //var useRestrictionsDayNameNode = $(this)[0].UseRestrictionsDayName.Items
+            //$(useRestrictionsDayNameNode).each(function () {
+            //    if (useRestrictionsDayName != "") {
+            //        useRestrictionsDayName += " / "
+            //    }
+            //    useRestrictionsDayName += $(this)[0].UseRestrictionsDayName
+            //})
+            useRestrictionsDayName = $(this)[0].UseRestrictionsDayName;
+
+            // 날짜 형식이 아닌경우를 대비해 try catch
+            // 2016.04.11 날짜 형식 변환
+            try {
+                if (useRestrictionsDayName != undefined && useRestrictionsDayName != ''
+                    && useRestrictionsDayName.indexOf("-") > -1) {
+                    // 2016-01-01~2016-04-04
+                    var tmp = useRestrictionsDayName.replace(/ /g, "").split("~");
+                    var startDt = tmp[0].split('-');
+                    var endDt = tmp[1].split('-');
+
+                    //useRestrictionsDayName = startDt[0].substring(2, 4) + "/" + startDt[1] + "/" + startDt[2]
+                    //+ ' ~ ' + endDt[0].substring(2, 4) + "/" + endDt[1] + "/" + endDt[2]
+
+                    useRestrictionsDayName = startDt[2] + "/" + startDt[1] + "/" + startDt[0].substring(2, 4)
+                    + ' ~ ' + endDt[2] + "/" + endDt[1] + "/" + endDt[0].substring(2, 4)
+                }
+            }
+            catch (e) {
+                useRestrictionsDayName = $(this)[0].UseRestrictionsDayName;
+            }
+
+            //if (useRestrictionsDayName.indexOf("/") != -1) {
+            //    var tmp = useRestrictionsDayName.split("/")
+            //    useRestrictionsDayName = ""
+            //    for (i = 0; i < tmp.length; i++) {
+            //        if (i == 0) {
+            //            useRestrictionsDayName += tmp[i]
+            //        } else {
+            //            useRestrictionsDayName += "<em>" + tmp[i] + "</em>"
+            //        }
+            //    }
+            //}
+
+            var htmlString = "";
+            var sb = new StringBuilder();
+            sb.AppendFormat('<li id="ic{0}">', displayItemID)
+            sb.Append('    <span class="product_thum"><a href="javascript:void(0)">')
+            // 20161010 - Alt 수정
+            sb.AppendFormat('        <img src="{0}" alt="{1}" onerror=this.src="{2}"></a></span>', itemImageUrl, itemImageAlt, '/LCHS/Image/Thum/movie_no_image03.gif')
+            sb.Append('    <dl class="product_txt">')
+            sb.AppendFormat('        <dt class="product_tit"><a href="javascript:void(0)">{0}</a></dt>', displayItemName)
+            sb.AppendFormat('        <dd class="date"><span>Hạn sử dụng sản phẩm<!--사용기간-->  </span>{0}</dd>', useRestrictionsDayName)
+            sb.Append('     </dl>')
+            sb.Append('     <p class="product_price">')
+            //2016.05.03 수정
+            //if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+            if (currentSellPrice != 0 && currentSellPrice != discountSellPrice) {
+                sb.AppendFormat('        <span class="dash_price"><del>{0}{1}</del></span>', ToMoney(currentSellPrice.toString()), $.fn.getMessageTitle('LBL3037', Language)) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+            }
+            else {
+                sb.Append('        <span class="dash_price">Giá bán online<!--판매가--></span>')
+            }
+
+            sb.AppendFormat('        <span class="price"><em>{0}</em><span>{1}</span></span>', ToMoney(discountSellPrice.toString()), $.fn.getMessageTitle('LBL3037', Language)) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+            sb.Append('    </p>')
+            sb.Append('</li>')
+
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();
+            $(".product_wrap").find(".product_inner").find(".p" + displayMiddleClassificationCode).append(htmlString)
+            $(".product_wrap").find(".product_inner").find(".p" + displayMiddleClassificationCode).find("li").last().find("a")
+                .data({
+                    "displayLargeClassificationCode": displayLargeClassificationCode
+                    , "displayMiddleClassificationCode": displayMiddleClassificationCode
+                    , "displayItemID": displayItemID
+                })
+        })
+
+        //상품메뉴 클릭
+        $(".product_wrap").find(".tab_st07").find("li").find(">a").off("click")
+        $(".product_wrap").find(".tab_st07").find("li").find(">a").on("click", function () {
+            var displayMiddleClassificationCode = $(this).data("displayMiddleClassificationCode")
+
+            //$(this).parent().parent().find("li.on").each(function () {
+            //    var imgUrl = $(this).find("img").attr("src").replace(/_on/gi, "")
+            //    $(this).removeClass("on")
+            //    $(this).find("img").attr("src", imgUrl)
+            //})
+
+            //var tmp = $(this).find("img").attr("src").split(".")
+            //var imgUrl = tmp[0] + "_on." + tmp[1]
+            $(this).closest(".tab_st07").find("li").removeClass("on")
+            $(this).parent().addClass("on")
+            //$(this).find("img").attr("src", imgUrl)
+            var index = $(".product_wrap").find(".tab_st07").find("li").index($(this).closest("li"))
+
+            //$('html,body').animate({ scrollTop: $(".product_wrap").find(".bg_fixed").offset().top }, 0);
+            var top = $(".product_wrap").find(".bg_fixed").offset().top
+            var stylePosName = $(".product_wrap").find(".bg_fixed").css("position")
+
+            //var categoryTop = $("#m" + displayMiddleClassificationCode).offset().top
+            // $('html,body').animate({ scrollTop: top+10 }, 0);
+            // $(".product_wrap").find(".bg_fixed").css("position", "fixed")
+            var categoryTop = $("#m" + displayMiddleClassificationCode).offset().top
+
+            if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+                if (index > 0) { categoryTop -= 100 }
+
+                if (stylePosName == "fixed") {
+                    $('html,body').animate({ scrollTop: categoryTop }, 0);
+                } else {
+                    $('html,body').animate({ scrollTop: categoryTop - 94 }, 0);
+                }
+            } else {
+
+                if (index > 0) { categoryTop -= 58 } else { categoryTop -= 50 }
+
+                if (stylePosName == "fixed") {
+                    $('html,body').animate({ scrollTop: categoryTop }, 0);
+                } else {
+                    $('html,body').animate({ scrollTop: categoryTop - 50 }, 0);
+                }
+            }
+
+        })
+
+        //상품 클릭 
+        $(".product_wrap").find(".product_inner").find(".product_slist").find("li").find("a").off("click")
+        $(".product_wrap").find(".product_inner").find(".product_slist").find("li").find("a").on("click", function () {
+
+            var displayItemID = $(this).data("displayItemID")
+            var displayMiddleClassificationCode = $(this).data("displayMiddleClassificationCode")
+            goLotteCinemaMallDetail(_classifictionCode, displayMiddleClassificationCode, _cinemaID, displayItemID, "1")
+            //goLotteCinemaMallDetail(cinemaMallMenuCode, detailDivisionCode, cinemaID, itemCode,"1")
+        })
+
+        //상품 마우스 오버
+        $(".product_wrap").find(".product_inner").find(".product_slist").find("li").off("mouseenter")
+        $(".product_wrap").find(".product_inner").find(".product_slist").find("li").on("mouseenter", function () {
+            $(this).closest(".product_inner").find(".product_slist").find(".product_price").removeClass("hover")
+            $(this).find(".product_price").addClass("hover")
+        })
+
+        //상품 마우스 아웃
+        $(".product_wrap").find(".product_inner").find(".product_slist").find("li").off("mouseleave")
+        $(".product_wrap").find(".product_inner").find(".product_slist").find("li").on("mouseleave", function () {
+            $(this).closest(".product_inner").find(".product_slist").find(".product_price").removeClass("hover")
+        })
+
+    } catch (e) {
+        CheckException(e, "getCinemaMallLists", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+    //초기셋팅(설정된 상픔설정)
+    if (_initYN == "Y") {
+        setItemInit()
+    }
+    _initYN = "N"
+
+    //  }
+    //} catch (e) {
+    //    throw new Error(resultMessage);	//Error를 발생하고, Data 요청 결과 massage 를 전달한다.
+    //}
+
+}
+
+
+cinemaMallCategoryImg = function (displayLargeClassificationCode, n) {
+    var itemImgUrl = ""
+    if (displayLargeClassificationCode == CLASSIFICATION_SWEET_CODE) {
+        if (n == 0) {
+            itemImgUrl = "/LCHS/Image/icon/icon_best.png"
+        } else if (n == 1) {
+            itemImgUrl = "/LCHS/Image/icon/icon_combo.png"
+        } else if (n == 2) {
+            itemImgUrl = "/LCHS/Image/icon/icon_popcorn.png"
+        } else if (n == 3) {
+            itemImgUrl = "/LCHS/Image/icon/icon_drink.png"
+        } else if (n == 4) {
+            itemImgUrl = "/LCHS/Image/icon/icon_snack.png"
+        }
+    } else {
+        if (n == 0) {
+            itemImgUrl = "/LCHS/Image/icon/icon_movtk.png"
+        } else if (n == 1) {
+            itemImgUrl = "/LCHS/Image/icon/icon_pro.png"
+        } else if (n == 2) {
+            itemImgUrl = "/LCHS/Image/icon/icon_pkg.png"
+        } else if (n == 3) {
+            itemImgUrl = "/LCHS/Image/icon/icon_md.png"
+        }
+    }
+    return itemImgUrl;
+
+}
+
+/****************************************
+* 선호영화관 클릭 이벤트 처리
+* @param
+*		divisionCode : 일반관, 스페셜관 구분
+*       detailDivisionCode : 지역코드
+*       cinemaId : 영화관 코드(1016:월드타워) 
+* @return
+****************************************/
+clickFavoriteCinema = function (divisionCode, detailDivisionCode, cinemaID) {
+    // console.log(divisionCode + '//' + detailDivisionCode + '//' + cinemaID)
+    //지역 클릭
+    $(".theater_zone").find(".area_zone").find(".da" + detailDivisionCode).click()
+    //영화관 클릭
+    $(".theater_zone").find(".area_cont").find(".d" + detailDivisionCode).find(".cinema" + cinemaID).click()
+}
+
+/****************************************
+* 지역 클릭 이벤트 처리
+* @param
+*		divisionCode : 일반관, 스페셜관 구분
+*       detailDivisionCode : 지역코드
+*       cinemaId : 영화관 코드(1016:월드타워) 
+* @return
+****************************************/
+clickDetailDivision = function (divisionCode, detailDivisionCode) {
+    var obj = $(".theater_zone").find(".area_zone").find(".da" + detailDivisionCode);
+    $(".theater_zone").find(".area_zone").find(">a").removeClass("on");
+    obj.addClass("on")
+
+    $(".theater_zone").find(".area_cont").removeClass("on");
+    obj.closest("li").find(".area_cont").addClass("on")
+
+}
+
+/****************************************
+* 영화관 클릭 이벤트 처리
+* @param
+*		divisionCode : 일반관, 스페셜관 구분
+*       detailDivisionCode : 지역코드
+*       cinemaId : 영화관 코드(1016:월드타워) 
+* @return
+****************************************/
+clickCinema = function (param) {
+    _divisionCode = param.divisionCode
+    _detailDivisionCode = param.detailDivisionCode
+    _cinemaID = param.cinemaID
+    var obj = $(".theater_zone").find(".area_cont").find(".d" + _detailDivisionCode).find(".cinema" + _cinemaID);
+    var cinemaName = obj.data("cinemaName")
+    $(".theater_zone").find(".area_cont").find(".area_list").find("li").find("a").removeClass("on");
+    obj.addClass("on")
+
+
+    $(".cinema_twrap").find(".srchResult_none").hide()
+    $(".product_wrap").show()
+
+    //선택한 상품 타이틀
+    $(".product_wrap").find(".bg_fixed").find(".product_tit").html(cinemaName + " Chi tiết mặt hàng") // 상품 내역
+
+    getCinemaMallLists()
+}
+
+/****************************************
+* 상품 쿠키 삭제
+* @param
+*		divisionCode : 일반관, 스페셜관 구분
+*       detailDivisionCode : 지역코드
+*       cinemaId : 영화관 코드(1016:월드타워) 
+* @return
+****************************************/
+deleteCinemaMallCookie = function (param) {
+    // console.log($.cookie("bucketID"))
+    resetCookiCart()
+    drawCinemaShopCart()
+    clickCinema(param)
+}
+
+/****************************************
+* 초기 설정값
+****************************************/
+setCinemaInit = function () {
+
+    if (_cinemaID != "") {
+        setCinema()
+    } else {
+        var len = $(".favorite_list").find(">li").find("a").length
+        if (len > 0) {
+            $(".favorite_list").find(">li").find("a").eq(0).click()
+        } else {
+            _cinemaID = "1016" //월드타워 기본영화관
+            setCinema()
+        }
+    }
+
+}
+
+setCinema = function () {
+    //지역 클릭
+    // $(".da" + _detailDivisionCode).click()
+    //영화관 클릭
+    $(".cinema" + _cinemaID).click()
+    _detailDivisionCode = $(".cinema" + _cinemaID).data("detailDivisionCode")
+    $(".da" + _detailDivisionCode).click()
+}
+
+setItemInit = function () {
+
+    var len = 0
+    // 상품메뉴버튼 클릭
+    if (_displayMiddleClassification != "") {
+        $(".btn" + _displayMiddleClassification).click()
+
+    }
+
+    //상품 위치로 이동
+    len = $("#ic" + _displayItemID).length
+    if (len > 0) {
+        $('html,body').animate({ scrollTop: $("#ic" + _displayItemID).offset().top - 180 }, 0);
+        $("#ic" + _displayItemID).addClass("focus")
+        // console.log($("#ic" + _displayItemID).data())
+        _displayMiddleClassification = $("#ic" + _displayItemID).find("a").data("displayMiddleClassificationCode")
+
+        $(".product_wrap").find(".product_inner").find(".btn" + _displayMiddleClassification).closest("li").removeClass("on").addClass("on")
+
+    }
+
+}
+
+// ##### 시네마몰 베스트 상품 메인 키 비쥬얼 시작 #####
+
+//json Data Call
+cinemaMallKeyVisual = function () {
+    try {
+        var obj = {
+            MethodName: "GetCinemaMallKeyVisual"
+            , channelType: 'HO'
+            , osType: BrowserAgent()
+            , osVersion: navigator.userAgent
+            //, multiLanguageID: Language
+            // 20160219 김태완 - 스위트샵,기프트샵 Language 고정
+        	, multiLanguageID: "LL" // Local Language
+            , displayLargeClassificationCode: _classifictionCode
+        };
+        JsonCall(CinemaServiceDomain + "/LCWS/CinemaMall/CinemaMallData.aspx", obj, cinemaMallKeyVisualReturnJsonData)
+    } catch (e) {
+        CheckException(e, "cinemaMallKeyVisual", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//DataDraw
+cinemaMallKeyVisualReturnJsonData = function (data) {
+    try {
+
+        var jsonData = data.responseJSON.KeyVisual.Items;
+        //  console.log(jsonData)
+
+        $("#ulMovieKeyValue").html("");
+        // 결과값중 DisplayMoveDivCode : 0(없음), 1(이벤트), 2(상품상세)
+        $.each(jsonData, function (key, val) {
+            var movieImageFileFullPath = $(this)[0].MovieImageFileFullPath
+            var imageAlt = $(this)[0].ImageAlt
+            var linkUrl = $(this)[0].LinkUrl
+            var eventID = $(this)[0].EventID
+            var displayMoveDivCode = $(this)[0].DisplayMoveDivCode
+            var eventTypeCode = $(this)[0].EventTypeCode
+            var devTemplateYN = $(this)[0].DevTemplateYN
+            var html = '';
+            if (key == 0)
+                html = html + '<li class="active">';
+            else
+                html = html + '<li>';
+
+            if (displayMoveDivCode == "1" || displayMoveDivCode == "2") {
+                html = html + '<a href="javascript:void(0)" ></a>';
+            } else {
+                html = html + '<img src="' + movieImageFileFullPath + '" alt="' + imageAlt + '" border=0 />';
+            }
+            html += "</li>"
+            $("#ulMovieKeyValue").append(html);
+
+            $("#ulMovieKeyValue").find(">li").last().data({
+                ImagePath: movieImageFileFullPath,
+                ImageAlt: imageAlt
+            });
+
+            $("#ulMovieKeyValue").find(">li").last().find("a").data(
+                {
+                    "linkUrl": linkUrl
+                    , "eventID": eventID
+                    , "displayMoveDivCode": displayMoveDivCode
+                    , "eventTypeCode": eventTypeCode
+                    , "devTemplateYN": devTemplateYN
+                }
+            )
+        });
+
+        $("#ulMovieKeyValue").find(">li").find("a").on("click", function () {
+            var linkUrl = $(this).data("linkUrl")
+            var eventID = $(this).data("eventID")
+            var displayMoveDivCode = $(this).data("displayMoveDivCode")
+            var eventTypeCode = $(this).data("eventTypeCode")
+            var devTemplateYN = $(this).data("devTemplateYN")
+
+            if (displayMoveDivCode == "1") {
+                goEventDtailsMove(eventID, eventTypeCode, devTemplateYN, "1")
+            } else if (displayMoveDivCode == "2") {
+                window.open(linkUrl, "", "")
+            }
+        })
+
+        var slideGeneration1 = new $.fn.slideGeneration(
+            {
+                target: '.movile_box'
+                , box: '.bannerImg'
+                , item: 'li'
+                , space: 0
+                , animation: 'slide'
+                , btn: true
+                , prev: '.btnc_prev'
+                , next: '.btnc_next'
+                , timer: true
+                , delay: 3000
+                , page: true
+                //, pageIttem: '.ctr_btn'
+            })
+        ; // 함수 호출 방식
+
+    } catch (e) {
+        CheckException(e, "cinemaMallKeyVisualReturnJsonData", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+// ##### 시네마몰 베스트 상품 메인 키 비쥬얼 끝 #####
+
+// ##### 시네마몰 상세보기 #####
+
+/****************************************
+* 시네마몰 상세보기(패키지)
+* @param
+* @return
+****************************************/
+getCinemaMallItemDetail = function () {
+    try {
+        var obj
+        if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+            obj = {
+                MethodName: "CinemaMallSweetItemDetail"
+               , channelType: "HO"
+               , osType: BrowserAgent()
+               , osVersion: navigator.userAgent
+                //, multiLanguageID: Language
+                // 20160219 김태완 - 스위트샵,기프트샵 Language 고정
+	        	, multiLanguageID: "LL" // Local Language
+               , displayLargeClassification: _classifictionCode
+               , displayMiddleClassification: _displayMiddleClassification
+               , cinemaID: _cinemaID
+               , itemID: _displayItemID
+            };
+        } else {
+            obj = {
+                MethodName: "CinemaMallGiftItemDetail"
+               , channelType: "HO"
+               , osType: BrowserAgent()
+               , osVersion: navigator.userAgent
+                //, multiLanguageID: Language
+                // 20160219 김태완 - 스위트샵,기프트샵 Language 고정
+	        	, multiLanguageID: "LL" // Local Language
+               , displayLargeClassification: _classifictionCode
+               , displayMiddleClassification: _displayMiddleClassification
+               , itemID: _displayItemID
+            };
+        }
+
+        JsonCall(CinemaServiceDomain + "/LCWS/CinemaMall/CinemaMallData.aspx", obj, returnJsonDataCinemaMallItemDetail)
+    } catch (e) {
+        CheckException(e, "getCinemaMallItemDetail", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+/****************************************
+* 상품 DATA 받기
+* @param
+*		data : json Data
+****************************************/
+returnJsonDataCinemaMallItemDetail = function (data) {
+    //alert("상품 DATA 받기");
+    try {
+        var topNode = data.responseJSON
+        var isOk = topNode.IsOK
+        //console.log(topNode);
+
+        if (isOk == "false") {
+            cinemaMallDetailAlert();
+            return false;
+        }
+
+        var detailNode = topNode.CinemaMallItemDetail;
+        _productNode = detailNode;
+        var itemImageItemsNode = detailNode.ItemImages.Items;                  // 상품 이미지
+        var cinemaMallItemNode = detailNode.Items.Items;                 //상품 정보
+        // var discountBenefitItems = detailNode.DiscountBenefitItems
+        var itemUseAdvisesNode = detailNode.ItemUseAdvises.Items;                    //이용안내
+        var itemUnShowCinemas = detailNode.ItemUnShowCinemas.Items;                //이용불가 영화관
+        var ItemSmartOrdersNode = detailNode.ItemSmartOrders.Items;
+
+        var ItemUnShowCinemasNode = detailNode.ItemUnShowCinemas;  //시네몰 사용불가 영화관 리스트
+
+        // console.log(cinemaMallItemNode)
+        //var isOK = CinemaMallNode.IsOK;
+
+        //상품정보
+        var displayItemName = ""                    //상품명    
+        var displayDate = ""                        //구매가능기간
+        var customerBuyRestrictionsName = ""        //구매제한
+        var currentSellPrice = "0"                  //상품가격
+        var discountSellPrice = "0"                 //판매가격
+        var refundPassibleDayCount = ""
+        var packageYN = "0"                         //패키지 유무(0:false, 1:true)
+        var packageConstitutionProduct = ""         //패키지 구성품
+        var itemMemo = ""
+        var optionTemplateCode = ""                 //1:(Sweet# 단품), 2(Sweet# 콤보), 5(Gift# 단품)
+        var smartOrderYN = "N"
+        var displayItemDescription = ""
+        var useRestrictionsDayName = ""
+        var earlyBirdYN = "";
+
+        if (cinemaMallItemNode.length > 0) {
+            displayItemName = cinemaMallItemNode[0].DisplayItemName
+            displayDate = cinemaMallItemNode[0].DisplayDate
+            customerBuyRestrictionsName = cinemaMallItemNode[0].CustomerBuyRestrictionsName
+            currentSellPrice = cinemaMallItemNode[0].CurrentSellPrice
+            discountSellPrice = cinemaMallItemNode[0].DiscountSellPrice
+            refundPassibleDayCount = cinemaMallItemNode[0].RefundPassibleDayCount
+            packageYN = cinemaMallItemNode[0].PackageYN
+            packageConstitutionProduct = cinemaMallItemNode[0].PackageConstitutionProduct
+            itemMemo = cinemaMallItemNode[0].ItemMemo
+            optionTemplateCode = cinemaMallItemNode[0].OptionTemplateCode
+            smartOrderYN = cinemaMallItemNode[0].SmartOrderYN
+            displayItemDescription = cinemaMallItemNode[0].DisplayItemDescription
+            earlyBirdYN = cinemaMallItemNode[0].EarlyBirdYN;
+            itemBaseType = cinemaMallItemNode[0].ItemTypeBase;
+            initQuantity = cinemaMallItemNode[0].ItemTypeBase == 'snack_coupon' ? 0 : 9;
+
+            _optionTemplateCode = optionTemplateCode;
+
+            // 20160225 김태완 - 사용 기간 수정 배열 없어짐
+            //var useRestrictionsDayNameNode = cinemaMallItemNode[0].UseRestrictionsDayName.Items
+            //$(useRestrictionsDayNameNode).each(function () {
+            //	if (useRestrictionsDayName != "") {
+            //		useRestrictionsDayName += "/"
+            //	}
+            //	if (_classifictionCode == CLASSIFICATION_GIFT_CODE) {
+            //		useRestrictionsDayName += $(this)[0].SetProductName + ' ' + $(this)[0].UseRestrictionsDayName
+            //	} else {
+            //		useRestrictionsDayName += $(this)[0].UseRestrictionsDayName
+            //	}
+            //});
+            useRestrictionsDayName = cinemaMallItemNode[0].UseRestrictionsDayName;
+
+            // 얼리버드 선물금지
+            if (earlyBirdYN != undefined && earlyBirdYN == 1) {
+                $("#btnPresent").hide();
+                $("#btnBuy").removeClass("fl");
+                $("#btnBuy").addClass("onBtn1");
+                $("#btnBuy").show();
+            }
+            else {
+                ////2016. 04. 01 강제추가
+                if (_displayItemID == "1603300001" || _displayItemID == "1603300002" || _displayItemID == "1603300003" || _displayItemID == "1603300004" || _displayItemID == "1603300005" || _displayItemID == "1603300007" || _displayItemID == "1603300006" || _displayItemID == "1603300008" || _displayItemID == "1603300009") {
+                    //$("#btnTy2 > li:first").remove();
+                    //$("#btnTy2 > li:last").addClass("onBtn1");
+                    //$(".btnTy2 > li:last").show();
+                    //$('.btnTy2 li').css('width', '100%');
+                    $("#btnPresent").hide();
+                    $("#btnBuy").removeClass("fl");
+                    $("#btnBuy").addClass("onBtn1");
+                    $("#btnBuy").show();
+                }
+                    // 2016. 04. 01.
+                else {
+                    $("#btnPresent").show();
+                    $("#btnBuy").show();
+                }
+            }
+        }
+
+        if (discountSellPrice == "" || discountSellPrice == null) { discountSellPrice = 0 }
+        _discountSellPrice = discountSellPrice
+        _totalSellPrice = discountSellPrice
+
+        if (packageItems == null) { packageItems = "" }
+        if (packageYN == "0" || packageItems == "") {
+            $("#packageItemsTitle").hide()
+            $("#packageItems").hide()
+
+        } else {
+            $("#packageItems").html(packageConstitutionProduct)
+        }
+
+        if (displayDate == "" || displayDate == null) {
+            $(".grpDisplayDate").hide()
+        }
+
+        if (customerBuyRestrictionsName == "" || customerBuyRestrictionsName == null) {
+            $(".grpCustomerBuyRestrictionsName").hide()
+        }
+
+        if (useRestrictionsDayName == "" || useRestrictionsDayName == null) {
+            $(".grpUseRestrictionsDayName").hide()
+        }
+        if (displayItemDescription == "" || displayItemDescription == null) {
+            $(".grpItemMemo").hide()
+        }
+
+        $(".itemName").html(displayItemName)
+        $("#displayItemName").html(displayItemName)
+        $("#useRestrictionsDayName").html(useRestrictionsDayName)
+        $("#itemMemo").html(displayItemDescription)
+        $("#customerBuyRestrictionsName").html(customerBuyRestrictionsName)
+        $("#displayDate").html(displayDate)
+
+        // 스마트오더 안내
+        if (smartOrderYN != "Y") {
+            $(".smartOrderInfo").hide()
+        } else {
+            $("#smartOrderMemo").html("")
+            $.each(ItemSmartOrdersNode, function (key, val) {
+                var smartOrderAdvise = $(this)[0].SmartOrderAdvise
+                var smartOrderAdviseDescription = $(this)[0].SmartOrderAdviseDescription
+                $("#smartOrderMemo").append('<h3 class="detail_tit">' + smartOrderAdvise + '</h3><div class="dataCt">' + smartOrderAdviseDescription + '</div>');
+            });
+        }
+        if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+            if (currentSellPrice == discountSellPrice) {
+                $(".productPriceInfo").hide()
+            }
+            $("#productPrice").html(ToMoney(currentSellPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))  //1106 삭제->1214부활(스윗트 상품에서만 적용)
+            $("#productPrice").parent().append($.fn.getMessageTitle('LBL3037', Language));
+        }
+
+        $("#sellPrice").html(ToMoney(discountSellPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+        $("#sellPrice").parent().append($.fn.getMessageTitle('LBL3037', Language));
+
+        //상품 이미지
+        $("#ulMovieKeyValue").html("");
+        $.each(itemImageItemsNode, function (key, val) {
+            var ItemImageALT = $(this)[0].ItemImageALT
+            var itemImageURL = $(this)[0].ItemImageURL
+            var html = '';
+            if (key == 0)
+                html = html + '<li class="active">';
+            else
+                html = html + '<li>';
+
+            html = html + '<a href="javascript:void(0)" ><img src="' + itemImageURL + '" alt="' + ItemImageALT + '" border=0 /></a></li>';
+            $("#ulMovieKeyValue").append(html);
+        });
+
+        var slideGeneration1 = new $.fn.slideGeneration({
+            target: '.slide_dBox'
+            , box: '.slide_List'
+            , item: 'li'
+            , space: 0
+            , animation: 'slide'
+            , btn: true
+            , prev: '.btn_prev'
+            , next: '.btn_next'
+            , timer: true
+            , delay: 3000
+            , page: true
+            //, pageIttem: '.ctr_btn'
+        }); // 함수 호출 방식
+
+        //사용정보
+
+        $.each(itemUseAdvisesNode, function (key, val) {
+            var useAdvise = $(this)[0].UseAdvise
+            var useAdviseDescription = $(this)[0].UseAdviseDescription
+            var htmlString = "";
+            var sb = new StringBuilder();
+
+            sb.Append('<tr>')
+            sb.AppendFormat('		<th scope="row">{0}</th>', useAdvise)
+            sb.Append('		<td>')
+            sb.AppendFormat('			<ul class="trafficMemo">{0}</ul>', useAdviseDescription)
+            sb.Append('		</td>')
+            sb.Append('	</tr>')
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();
+            $("#useInfo").append(htmlString)
+        });
+
+        var itemUnShowCinemasTemplete = ''
+
+        itemUnShowCinemasTemplete += '<table border="1" id="unUseCinemaTable" class="tbl_st01" >'
+        itemUnShowCinemasTemplete += '								<caption>Không có hướng dẫn Cinema</caption>' // 사용불가 영화관 안내표
+        itemUnShowCinemasTemplete += '								<colgroup>'
+        itemUnShowCinemasTemplete += '									<col style="width:180px" />'
+        itemUnShowCinemasTemplete += '									<col style="width:*" />'
+        itemUnShowCinemasTemplete += '								</colgroup>'
+        itemUnShowCinemasTemplete += '								<thead>'
+        itemUnShowCinemasTemplete += '									<tr>'
+        itemUnShowCinemasTemplete += '										<th scope="col">Phân loại</th>' //구분
+        itemUnShowCinemasTemplete += '										<th scope="col">Điện ảnh khuyết tật</th>' // 사용불가 영화관
+        itemUnShowCinemasTemplete += '									</tr>'
+        itemUnShowCinemasTemplete += '								</thead>'
+        itemUnShowCinemasTemplete += '								<tbody id="unUseCinemaList">'
+        itemUnShowCinemasTemplete += '								</tbody>'
+        itemUnShowCinemasTemplete += '							</table>'
+
+        itemUnShowCinemasAppend = function (obj, htmlClone) {
+            var detailDivisionName = obj.Area
+            var cinemaNames = obj.CinemaNames
+            var htmlString = "";
+            var sb = new StringBuilder();
+            sb.Append('<tr>')
+            sb.AppendFormat('		<td scope="txtc">{0}</td>', detailDivisionName)
+            sb.AppendFormat('		<td>{0}</td>', cinemaNames)
+            sb.Append('	</tr>')
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();
+            $(htmlClone).find("#unUseCinemaList").append(htmlString)
+        }
+
+        var objHtml = ""
+        var unUseCinemaCnt = 0;
+        if (ItemUnShowCinemasNode.length > 0) {
+
+            $(ItemUnShowCinemasNode).each(function (n) {
+                var obj = $(this)[0].Items
+                var productName = $(this)[0].SetProductName
+                if (productName == null) { productName = "" }
+                var htmlClone = ""
+                var addClass = "mt30"
+
+                if (obj.length > 0) {
+                    if (unUseCinemaCnt == 0) {
+                        addClass = ""
+                    }
+                    objHtml = '<h3 class="detail_tit ' + addClass + '" id="unUseCinemaTitle"><span class="itemName"></span> Điện ảnh khuyết tật</h3>' // 사용불가 영화관
+                    objHtml += itemUnShowCinemasTemplete
+
+                    htmlClone = $(objHtml).clone(true)
+                    $(htmlClone).find(".itemName").html(productName)
+
+                    $(obj).each(function () {
+
+                        itemUnShowCinemasAppend($(this)[0], htmlClone)
+                    })
+                    $("#unUseCinema").append(htmlClone)
+                    unUseCinemaCnt += 1
+                }
+
+            });
+            if (unUseCinemaCnt > 0) {
+                $("#unUseCinema").append('<p class="bullet_txt" id="unUseCinemaInfo">* Không có sẵn Rạp chiếu phim có thể thay đổi mà không cần thông báo.</p>') // 사용불가 영화관은 당사 사정에 의해 변경될 수 있습니다.
+            }
+        }
+
+        //콤보상품일경우 => 1:(Sweet# 단품), 2(Sweet# 콤보), 5(Gift# 단품)
+        $(".product_scroll").html('')
+        if (optionTemplateCode == "1") {
+            drawUnitPackage(detailNode)
+        } else if (optionTemplateCode == "2") {
+            drawPackage(detailNode)
+
+        } else {
+            drawUnit(detailNode)
+        }
+
+        //선물
+        $("#btnPresent").on("click", function () {
+            if (_classifictionCode == CLASSIFICATION_GIFT_CODE && $.datepicker.formatDate('yymm', new Date($.now())) == '201606') {
+                var popup = new $.fn.modalPopGeneration({
+                    type: 'confirm'
+                    , serverTitle: 'Kiểm tra' // 확인
+                    //, serverMessage: '<span style="letter-spacing: -1px;">구매/선물 시 &lt;얼리썸머 SALE&gt; 경품 이벤트에 자동응모됩니다.<br>자세한 내용은 이벤트 페이지를 확인하세요.</span>'
+                    , serverMessage: '<span style="letter-spacing: -1px;">Mua / Hiện tại &lt;Sớm mùa hè&gt; Nó sẽ tự động áp dụng cho một sự kiện giải thưởng. Vui lòng kiểm tra trang sự kiện để biết chi tiết.</span>'
+                    , lang: 'LL' // Local Language
+                    , btns: true
+                    , btnParam1: true
+                    , btnParam2: true
+                    , execution: function () { btnPresentOnClick(); }
+                    , elem: $(this)
+                });
+            }
+            else if (_classifictionCode == CLASSIFICATION_GIFT_CODE && $.datepicker.formatDate('yymm', new Date($.now())) == '201607') {
+                var popup = new $.fn.modalPopGeneration({
+                    type: 'confirm'
+                    , serverTitle: 'Kiểm tra' // 확인
+                    //, serverMessage: '<span style="letter-spacing: -1px;">구매/선물 시 &lt;SUMMER SALE&gt; 경품 이벤트에 자동 응모됩니다.<br>자세한 내용은 이벤트 페이지를 확인하세요.</span>'
+                    , serverMessage: '<span style="letter-spacing: -1px;">Mua / Hiện tại &lt;SUMMER SALE&gt; Bạn sẽ tự động áp dụng cho một sự kiện giải thưởng. Vui lòng kiểm tra trang sự kiện để biết chi tiết.</span>'
+                    , lang: 'LL' // Local Language
+                    , btns: true
+                    , btnParam1: true
+                    , btnParam2: true
+                    , execution: function () { btnPresentOnClick(); }
+                    , elem: $(this)
+                });
+            }
+            else {
+                btnPresentOnClick();
+            }
+        })
+
+        //구매
+        $("#btnBuy").on("click", function () {
+            if (_classifictionCode == CLASSIFICATION_GIFT_CODE && $.datepicker.formatDate('yymm', new Date($.now())) == '201606') {
+                var popup = new $.fn.modalPopGeneration({
+                    type: 'confirm'
+                    , serverTitle: 'Kiểm tra' // 확인
+                    //, serverMessage: '<span style="letter-spacing: -1px;">구매/선물 시 &lt;얼리썸머 SALE&gt; 경품 이벤트에 자동응모됩니다.<br>자세한 내용은 이벤트 페이지를 확인하세요.</span>'
+                    , serverMessage: '<span style="letter-spacing: -1px;">Mua / Hiện tại &lt;Sớm mùa hè&gt; Nó sẽ tự động áp dụng cho một sự kiện giải thưởng. Vui lòng kiểm tra trang sự kiện để biết chi tiết.</span>'
+                    , lang: 'LL' // Local Language
+                    , btns: true
+                    , btnParam1: true
+                    , btnParam2: true
+                    , execution: function () { btnBuyOnClick(); }
+                    , elem: $(this)
+                });
+            }   
+            else if (_classifictionCode == CLASSIFICATION_GIFT_CODE && $.datepicker.formatDate('yymm', new Date($.now())) == '201607') {
+                var popup = new $.fn.modalPopGeneration({
+                    type: 'confirm'
+                    , serverTitle: 'Kiểm tra' // 확인
+                    //, serverMessage: '<span style="letter-spacing: -1px;">구매/선물 시 &lt;SUMMER SALE&gt; 경품 이벤트에 자동 응모됩니다.<br>자세한 내용은 이벤트 페이지를 확인하세요.</span>'
+                    , serverMessage: '<span style="letter-spacing: -1px;">Mua / Hiện tại &lt;SUMMER SALE&gt; Bạn sẽ tự động áp dụng cho một sự kiện giải thưởng. Vui lòng kiểm tra trang sự kiện để biết chi tiết.</span>'
+                    , lang: 'LL' // Local Language
+                    , btns: true
+                    , btnParam1: true
+                    , btnParam2: true
+                    , execution: function () { btnBuyOnClick(); }
+                    , elem: $(this)
+                });
+            }
+            else if (earlyBirdYN == 1) {
+                //20170109 sunho 시네티콘 1+1 확인 팝업 
+                //20170817 18주년 이벤트 추가
+                if (_displayItemID == "1708100002") {
+                    btnBuyOnClick();
+                } else {
+                    var popup = new $.fn.modalPopGeneration({
+                        type: 'confirm'
+                    , code: 'COM1121'
+                    , lang: 'LL' // Local Language
+                    , btns: true
+                    , btnParam1: false
+                    , btnParam2: true
+                    , execution: function () { btnBuyOnClick(); }
+                    , elem: $(this)
+                    });
+                }
+
+                //var popup = new $.fn.modalPopGeneration({
+                //    type: 'confirm'
+                //    , code: 'COM1121'
+                //    , lang: 'KR'
+                //    , btns: true
+                //    , btnParam1: false
+                //    , btnParam2: true
+                //    , execution: function () { btnBuyOnClick(); }
+                //    , elem: $(this)
+                //});
+                
+            }
+            else {
+                btnBuyOnClick();
+            }
+        })
+
+        //담기
+        $("#btnCart").on("click", function () {
+
+            if (memberInfo == "" || memberInfo == null) {
+                openLoginPopup($(this))
+                return false;
+            }
+
+            if (memberInfo.MemberNoOn == 0) {
+                new $.fn.modalPopGeneration({ type: 'message', code: 'COM1119', lang: 'LL', btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+                return false;
+            }
+
+            btnCartOnClick(optionTemplateCode);
+        })
+
+    } catch (e) {
+        CheckException(e, "returnJsonDataCinemaMallItemDetail", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+btnCartOnClick = function (optionTemplateCode) {
+    if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+        var errTF = false
+        if (optionTemplateCode == "2") {
+            errTF = drawPackageValidationCheck()
+        } else if (optionTemplateCode == "1") {
+            errTF = drawUnitPackageValidationCheck()
+        }
+        if (errTF == true) {
+            new $.fn.modalPopGeneration({ type: 'message', code: 'COM1116', lang: 'LL', btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+            return false;
+        }
+    }
+
+    // 20170710 - 담기 기능 수정
+    // 단품 담을 대 금액 오류 수정
+    if (optionTemplateCode == "1") {
+        //$("select[data-type='opt2']").find("option:eq(0)").prop("selected", true);
+        //$(".countInputList").html("")
+        calUnitPackageTotalPrice()
+    }
+    //현제 상품 쿠키 추가 등록
+    var rtnVal = addCookieCartProduct("1", true);
+
+    if (rtnVal == "true") {
+        drawCinemaShopCart();
+
+        new $.fn.modalPopGeneration({
+            type: 'confirm'
+        , code: 'COM1111'
+        , lang: 'LL' // Local Language
+        , btns: true
+        , btnParam1: true, btnParam2: true
+        , execution: showCart, execution2: hideCart
+        , elem: $(this)
+        });
+
+        //옵션 초기화(designSelectElement2 적용할경우 수정해야 함)
+        if (optionTemplateCode == "2") {
+            $("select[data-type='opt1'][ data-fixSelectTypeYN='N']").find("option:eq(0)").prop("selected", true);
+            $("select[data-type='opt1'][ data-fixSelectTypeYN='N']").change()
+            calPackageTotalPrice()
+        } else if (optionTemplateCode == "1") {
+            //$("select[data-type='opt2']").find("option:eq(0)").prop("selected", true);
+            //$(".countInputList").html("")
+            calUnitPackageTotalPrice()
+        }
+    }
+}
+
+btnPresentOnClick = function () {
+    if (memberInfo == "" || memberInfo == null) {
+        openLoginPopup($(this))
+        return false;
+    }
+
+    if (memberInfo.MemberNoOn == 0) {
+        new $.fn.modalPopGeneration({ type: 'message', code: 'COM1118', lang: 'LL', btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+        return false;
+    }
+
+    // 2016.04.11 
+    var params = {
+        MethodName: 'GetPresentValidCheck',
+        channelType: "HO",
+        osType: BrowserAgent(),
+        osVersion: navigator.userAgent,
+        multiLanguageID: Language,
+        memberNoOn: memberInfo.MemberNoOn,
+        itemID: _displayItemID,
+        itemCount: $("#txtItemCnt").val(),
+    };
+
+    var data = JsonReturnDataSync(CinemaServiceDomain + '/LCWS/Ticketing/PaymentData.aspx', params);
+    data = data.responseJSON;
+
+    if (data.IsOK == 'true' && data.ResultCode != '0') {
+        _presentObj = new Object()
+        _presentObj.TotalPrice = _totalSellPrice
+        _presentObj.discountSellPrice = _discountSellPrice
+        _presentObj.ItemName = $("#itemName").html()
+        _presentObj.ItemCnt = $("#txtItemCnt").val()
+        _presentObj.ItemImgUrl = $("#ulMovieKeyValue").find(">li").eq(0).find("img").attr("src")
+
+        //선물Input
+        var popSet = new $.fn.modalPopGeneration({
+            type: 'load'
+            //20180503 웹접근성 elem: 추가
+            , elem: $("#btnPresent")
+            //20180503 웹접근성 elem: 추가
+            , url: '/LCHS/View/Cinema-Mall/gift-template.html?v=2018041302'
+            , btns: false, btnParam1: false, btnParam2: false
+            , confir: ".default"
+            , closed: '.pop_btn_close'
+            , cancel: ""
+        });
+
+
+    }
+    else if (data.ResultMessage != '') {
+        alert(data.ResultMessage);
+    }
+}
+
+btnBuyOnClick = function () {
+
+    if (memberInfo == "" || memberInfo == null) {
+        openLoginPopup($(this))
+        return false;
+    }
+
+    if (memberInfo.MemberNoOn == 0) {
+        new $.fn.modalPopGeneration({ type: 'message', code: 'COM1119', lang: 'LL', btns: true, btnParam1: true, btnParam2: true, elem: $(this) });
+        return false;
+    }
+
+    if (_classifictionCode == CLASSIFICATION_SWEET_CODE) {
+        var errTF = false
+        if (_optionTemplateCode == "2") {
+            errTF = drawPackageValidationCheck()
+        } else if (_optionTemplateCode == "1") {
+            errTF = drawUnitPackageValidationCheck()
+        }
+        if (errTF == true) {
+            new $.fn.modalPopGeneration({ type: 'message', code: 'COM1116', lang: 'LL', btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+            return false;
+        }
+    }
+
+    // ticket http://jira.lotte.vn/browse/LCM-418
+    var cntItem = $("#txtItemCnt").val();
+    if(itemBaseType == 'movie_exticket'){        
+        if(cntItem < 10){
+            new $.fn.modalPopGeneration({ type: 'message', code: 'COM1167', lang: Language, btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+            return false;
+        }
+
+        // L(CM-461 show message discount
+        // currentSellPrice
+         // tinh gia so bo
+        if(_totalSellPrice >= 10*1000*1000){
+             new $.fn.modalPopGeneration({ type: 'confirm', code: 'COM1168', lang: Language, btns: true, btnParam1: true, btnParam2: true, elem: $(this) });
+             $(".pop_wrap").find(".btnc_confirm").on("click", function () {
+                 buyProcess();
+             })
+             $(".pop_wrap").find(".pop_close").on("click", function () {
+                 return;
+             })
+        }
+        else{
+            buyProcess();
+        }            
+    }
+    else{
+        buyProcess();
+    } 
+}
+
+drawPackageValidationCheck = function () {
+    var rtnVal = false
+    $(".product_scroll").find(".shop_list03").find("select").each(function () {
+        var val = $(this).find("option:selected").val()
+
+        if (val == "") {
+            rtnVal = true
+        }
+
+    })
+    return rtnVal
+}
+
+drawUnitPackageValidationCheck = function () {
+    var rtnVal = false
+    var len = $(".countInputList").find(">li").length
+    if (len == 0) {
+        rtnVal = true
+    }
+    return rtnVal
+}
+
+hideCart = function () {
+    viewCart(false)
+}
+showCart = function () {
+    viewCart(true)
+}
+
+//구매
+buyProcess = function () {
+    //담은 상품 쿠키 리셋
+    COOKIE_CART_NODE = "";
+
+    //현제 상품 쿠키 등록
+    var rtnVal = addCookieCartProduct("1", false)
+    //웹서비스 콜()
+    if (rtnVal == "true") {
+        setSellMall()
+    }
+}
+
+/****************************************
+* 단일상품 그리기
+* @param
+*		detailNode : 상품최상위 노드
+****************************************/
+drawUnit = function () {
+
+    try {
+
+        var htmlString = "";
+        var sb = new StringBuilder();
+
+        sb.Append('<div class="pro_case2">')
+        sb.Append('    <strong class="pro_tit">Số lượng<!--수량--></strong>')
+        sb.Append('    <div class="amount">')
+        sb.Append('        <input type="text" title="Nhập số lượng đại lượng" value='+initQuantity+' id="txtItemCnt" readonly>') // 수량갯수 입력
+
+        sb.Append('        <a href="javascript:void(0)" id="minus"><img src="/LCHS/Image/Btn/btn_s_minus02.gif" alt="Số lượng giảm"></a>') // 수량감소
+        sb.Append('        <a href="javascript:void(0)" id="plus"><img src="/LCHS/Image/Btn/btn_s_plus02.gif" alt="Tăng số lượng"></a>') // 수량증가
+        sb.Append('    </div>	')
+        sb.Append(' </div>')
+        htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+        sb.RemoveAll();
+        $(".product_scroll").html(htmlString)
+
+        // 20160907 17주년 이벤트 관련 제어
+        var isCountFlag = true;
+
+        //상품갯수 차감(상품 갯수 차감에 따른 금액계산)
+        $("#minus").on("click", function () {
+            // 20160907 17주년 이벤트 관련 제어
+            if (isCountFlag) {
+                var cnt = $("#txtItemCnt").val();               //상품 구매갯수
+                var sellPrice = _discountSellPrice       //판매가격
+                // var TotalSellPrice = cnt * parseInt(sellPrice)  //총 판매 가격
+
+                //상품 구매갯수는 1이상으로 설정되어야 함
+                if (cnt > 1) {
+                    cnt = parseInt(cnt) - 1
+                    _totalSellPrice = cnt * parseInt(sellPrice)
+
+                    $("#txtItemCnt").val(cnt);
+
+                    $("#totalSellPrice").html(ToMoney(_totalSellPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+
+                }
+            }
+        })
+
+        //상품갯수 증가(상품 갯수 증가에 따른 금액계산)
+        $("#plus").on("click", function () {
+            // 20160907 17주년 이벤트 관련 제어
+            if (isCountFlag) {
+                var cnt = $("#txtItemCnt").val();               //상품 구매갯수
+                var sellPrice = _discountSellPrice       //판매가격
+                cnt = parseInt(cnt) + 1
+                // rule mới ko limit 5 item nữa discount_giftshop
+                // http://jira.lotte.vn/browse/LCM-388
+                // if (cnt > 5) {
+                //     alert("Bạn có thể mua tối đa 5 món."); // 5매까지 구매 가능합니다.
+                //     return false;
+                // }
+                _totalSellPrice = cnt * parseInt(sellPrice)
+                $("#txtItemCnt").val(cnt);
+                $("#totalSellPrice").html(ToMoney(_totalSellPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+            }
+        })
+        $("#plus").click()
+
+        // 20160907 17주년 이벤트 관련 제어
+        if (_displayItemID == "1608300001") {
+            isCountFlag = false;
+        }
+
+        // 20170817 18주년 이벤트 관련 제어
+        if (_displayItemID == "1708100002") {
+            isCountFlag = false;
+        }
+
+    } catch (e) {
+        CheckException(e, "drawUnit", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+
+}
+
+/****************************************
+* 콤보상품 그리기
+* @param
+*		detailNode : 상품최상위 노드
+****************************************/
+drawPackage = function (detailNode) {
+    try {
+        var setProductInfoNode = detailNode.SetProductInfo              //상품정보 노드
+        var fixSetGroupInfosNode = detailNode.FixSetGroupInfos.Items              //상품 구성품 노드
+        var fixSetProductInfosNode = detailNode.FixSetProductInfos.Items              //상품 구성품 옵션1 노드
+
+        var sizeProductInfosNode = detailNode.SizeProductInfos.Items
+        var setProductID = setProductInfoNode.SetProductID
+        var setProductName = detailNode.SetProductName
+        var setTypeCode = setProductInfoNode.SetTypeCode
+        //var dcTypeCode = setProductInfoNode.DcTypeCode;
+        $("#displayItemName").html(setProductName)
+
+        $(".product_scroll").html('<ul class="shop_list03"></ul>')
+        $.each(fixSetGroupInfosNode, function () {
+            var setGroupName = $(this)[0].SetGroupName
+            //var setGroupCode = setGroupName.replace(" ", "")
+            var setGroupCode = $(this)[0].SetGroupDummyID
+            var menuID = $(this)[0].MenuID
+            var constitutionProductionDivCode = $(this)[0].ConstitutionProductionDivCode
+            var option1Title = $(this)[0].Option1Title
+            var fixSelectType = $(this)[0].FixSelectType
+            var fixSelectTypeYN = "N"
+            if ($.trim(fixSelectType) == "고정") { fixSelectTypeYN = "Y" }
+            var htmlString = "";
+            var sb = new StringBuilder();
+
+            sb.Append('<li>')
+            sb.AppendFormat('    <strong class="pro_tit">{0}</strong>', setGroupName)
+            sb.AppendFormat('    <ul class="sel_list"  id="optionDiv{0}">', setGroupCode)
+            sb.Append('        <li>')
+            //sb.AppendFormat('            <em class="pro_stit">{0}</em>	', option1Title)
+            sb.Append('            <div class="select_box">')
+            sb.AppendFormat('                <select title="{0} Chọn"  data-type="opt1" data-fixSelectTypeYN="{1}" id="option1{2}">', option1Title, fixSelectTypeYN, setGroupCode) // 선택
+            // 20160318 맛 주석 처리 참고
+            //sb.AppendFormat('                    <option value="">{0}을 선택하세요</option>', option1Title)
+            sb.Append('                </select>')
+            sb.Append('            </div>')
+            sb.Append('        </li>')
+            sb.Append('        <li>')
+            //sb.Append('            <em class="pro_stit">사이즈</em>')
+            sb.Append('            <div class="select_box">')
+            sb.AppendFormat('       <select  title="Chọn kích thước" data-type="opt2" id="option2{0}">', setGroupCode) // 사이즈 선택
+            // 20160318 맛 주석 처리 참고
+            //sb.Append('                    <option value="">사이즈를 선택하세요</option>')
+            sb.Append('                </select>')
+            sb.Append('            </div>')
+            sb.Append('        </li>')
+            sb.Append('    </ul>')
+            sb.Append('</li>')
+
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();
+            //$("#unUseCinema").append(htmlString)
+            // console.log(constitutionProductionDivCode)
+            $(".product_scroll").find(".shop_list03").append(htmlString)
+            $(".product_scroll").find(".shop_list03").find("#optionDiv" + setGroupCode + "").last().data({
+                "GroupName": setGroupName
+                 , "GroupCode": setGroupCode
+                , "menuID": menuID
+                , "setTypeCode": setTypeCode
+                , "constitutionProductionDivCode": constitutionProductionDivCode
+            })
+
+            $(".product_scroll").find("#optionDiv" + setGroupCode).find("#option1" + setGroupCode).find("option").last().data({
+                "option2Title": ""
+                , "sizeCount": 0
+            })
+
+            $(".product_scroll").find("#optionDiv" + setGroupCode).find("#option2" + setGroupCode).find("option").last().data({
+                "selectProductID": ""
+                , "addPrice": 0
+            })
+
+        })
+
+        $.each(fixSetProductInfosNode, function (n) {
+            var setGroupName = $(this)[0].SetGroupName
+            ///var setGroupCode = setGroupName.replace(" ", "")
+            var setGroupCode = $(this)[0].SetGroupDummyID
+            var menuID = $(this)[0].MenuID
+
+            var tastePerfumeCode = $(this)[0].TastePerfumeCode
+            var tastePerfumeName = $(this)[0].TastePerfumeName
+            var option2Title = $(this)[0].Option2Title
+            var option1ListValue = $(this)[0].Option1ListValue
+            var sizeCount = $(this)[0].SizeCount
+
+            var htmlString = "";
+            var sb = new StringBuilder();
+            sb.AppendFormat('           <option value="{0}">{1}</option>', tastePerfumeCode, option1ListValue)
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();
+            $(".product_scroll").find("#optionDiv" + setGroupCode).find("#option1" + setGroupCode).append(htmlString)
+            $(".product_scroll").find("#optionDiv" + setGroupCode).find("#option1" + setGroupCode).find("option").last().data({
+                "option2Title": option2Title
+                , "sizeCount": sizeCount
+            })
+        })
+
+        //고정옵션 disabled 처리
+        $(".product_scroll").find(".shop_list03").find("select[data-type=opt1][data-fixSelectTypeYN=Y]").find("option:eq(1)").prop("selected", true);
+        $(".product_scroll").find(".shop_list03").find("select[data-type=opt1][data-fixSelectTypeYN=Y]").prop("disabled", true)
+
+        if (sizeProductInfosNode.length > 0) {
+            var presetGroupCode = ""
+            $.each(sizeProductInfosNode, function (n) {
+                var setGroupName = $(this)[0].SetGroupName
+                var setGroupCode = $(this)[0].SetGroupDummyID
+
+                var tastePerfumeCode = $(this)[0].TastePerfumeCode
+                var tastePerfumeName = $(this)[0].TastePerfumeName
+                var productSizeCode = $(this)[0].ProductSizeCode
+                var productSizeName = $(this)[0].ProductSizeName
+                var selectProductID = $(this)[0].SelectProductID
+                var selectProductName = $(this)[0].SelectProductName
+                var discountSellPrice = $(this)[0].DiscountSellPrice
+                var menuID = $(this)[0].MenuID
+                var settleCode = $(this)[0].SettleCode
+                var option2ListValue = $(this)[0].Option2ListValue
+                var normalAmout = $(this)[0].NormalAmount
+                var addPrice = $(this)[0].AddPrice
+                var valCode = selectProductID + "|" + addPrice
+                var valName = selectProductName + " (+" + addPrice + ")"
+                var htmlString = "";
+                var sb = new StringBuilder();
+                if (presetGroupCode != setGroupCode) {
+                    $(".product_scroll").find("#optionDiv" + setGroupCode).find("select").last().data({
+                        "addPrice": addPrice
+                        , "GroupName ": setGroupName
+                        , "GroupCode": setGroupCode
+                        , "tastePerfumeCode": tastePerfumeCode
+                        , "tastePerfumeName": tastePerfumeName
+                        , "setTypeCode": setTypeCode
+                        , "menuID": menuID
+                        , "discountSellPrice": discountSellPrice
+                        , "settleCode": settleCode
+                        , "normalAmout": normalAmout
+                    })
+                }
+                sb.AppendFormat('           <option value="{0}" data-grpCode="{1}">{2}</option>', valCode, tastePerfumeCode, option2ListValue)
+                htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+                sb.RemoveAll();
+                $(".product_scroll").find("#optionDiv" + setGroupCode).find("#option2" + setGroupCode).append(htmlString)
+
+                $(".product_scroll").find("#optionDiv" + setGroupCode).find("#option2" + setGroupCode).find("option").last().data({
+                    "selectProductID": selectProductID
+                    , "addPrice": addPrice
+						, "discountSellPrice": discountSellPrice
+						, "normalAmout": normalAmout
+                })
+
+                presetGroupCode = setGroupCode
+            })
+        }
+
+        //맛선택 이벤트
+        $(".product_scroll").find(".shop_list03").find("[data-type=opt1]").on("change", function () {
+            var val = $(this).val()
+            var txt = $(this).find("option:selected").text()
+            var option2Title = $(this).find("option:selected").data("option2Title")
+            var tObj = $(this).closest("ul")
+            var obj = tObj.find("[data-type=opt2]")
+            var selectTopObj = tObj.find("[data-type=opt2]").closest("li")
+            var sizeCount = $(this).find("option:selected").data("sizeCount")
+
+            //console.log("================val : " + val);
+            //console.log("txt : " + txt);
+            //console.log("option2Title : " + option2Title);
+            //console.log("sizeCount : " + sizeCount);
+
+            obj.attr("title", option2Title + " Chọn"); // 선택
+            obj.find("> option").wrap('<span></span>').hide();
+            if (val != 0) {
+                obj.find(">span").find("option[data-grpCode=" + val + "]").unwrap('<span></span>').show();
+            }
+
+            if (sizeCount == 0) {
+                obj.closest("li").hide();
+                obj.find("option[data-grpCode='" + val + "']:eq(0)").prop("selected", true);
+            } else {
+                obj.closest("li").show();
+
+                // 기본값 설정
+                obj.find("option:eq(0)").prop("selected", true);
+            }
+            var txt = obj.find("option:selected").text();
+
+            /*select box layer 그리기 end*/
+
+            obj.change()
+        })
+
+        //선택 이벤트
+        $(".product_scroll").find(".shop_list03").find("[data-type=opt2]").on("change", function () {
+            var addPrice = $(this).find(">option:selected").data("addPrice")
+
+            //이전에 추가한 금액과 현제 선택한 추가금액 차익만큼 추가한후 선택한 추가금액 select box에 Data로 관리
+            // var addPrice2 = parseInt(addPrice) - parseInt(preAddPrice)
+            $(this).data({ "addPrice": addPrice })
+            calPackageTotalPrice()
+        })
+
+        $(".product_scroll").find(".shop_list03").find("[data-type=opt1]").change()
+        $(".product_scroll").find(".shop_list03").find("[data-type=opt2]").change()
+
+        // $.fn.designSelectElement2();
+    } catch (e) {
+        CheckException(e, "drawPackage", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+/****************************************
+* 단일상품 사이즈별 2개이상 구매가능(sweet 단일 상품)
+* @param
+*		detailNode : 상품최상위 노드
+****************************************/
+drawUnitPackage = function (detailNode) {
+    try {
+        var setProductInfoNode = detailNode.SetProductInfo              //상품정보 노드
+        var fixSetGroupInfosNode = detailNode.FixSetGroupInfos.Items              //상품 구성품 노드
+        var fixSetProductInfosNode = detailNode.FixSetProductInfos.Items              //상품 구성품 옵션1 노드
+
+        var sizeProductInfosNode = detailNode.SizeProductInfos.Items
+        var setProductID = setProductInfoNode.SetProductID
+        var setProductName = detailNode.SetProductName
+        var setTypeCode = setProductInfoNode.SetTypeCode
+        var constitutionProductionDivCode = fixSetGroupInfosNode[0].ConstitutionProductionDivCode
+        var option2Title = fixSetProductInfosNode[0].Option2Title
+        // $("#displayItemName").html(setProductName)
+
+        var html = '<dl class="pro_case1"><dt>'
+        html += '	<strong class="pro_tit">' + option2Title + '</strong>'
+        html += '<div class=""><select title="' + option2Title + ' Chọn" data-type="opt2" >' // 선택
+        // 20160318 맛 주석 처리 참고
+        html += '<option value="0">Vui lòng chọn</option>'  // 선택하세요
+        html += '    </select></div>'
+        html += '</dt></dl>'
+        html += '<dd><ul class="shop_list countInputList"></ul></dd>'
+
+        $(".product_scroll").html(html)
+
+        if (sizeProductInfosNode.length > 0) {
+
+            $.each(sizeProductInfosNode, function (n) {
+                var setGroupName = $(this)[0].SetGroupName
+                //var setGroupCode = setGroupName.replace(" ", "")
+                var setGroupCode = $(this)[0].SetGroupDummyID
+                var addPrice = $(this)[0].AddPrice
+                var tastePerfumeCode = $(this)[0].TastePerfumeCode
+                var tastePerfumeName = $(this)[0].TastePerfumeName
+                var productSizeCode = $(this)[0].ProductSizeCode
+                var productSizeName = $(this)[0].ProductSizeName
+                var selectProductID = $(this)[0].SelectProductID
+                var selectProductName = $(this)[0].SelectProductName
+                //var discountSellPrice = $(this)[0].DiscountSellPrice
+                var discountSellPrice = parseInt(_discountSellPrice) + parseInt(addPrice)
+                var menuID = $(this)[0].MenuID
+                var settleCode = $(this)[0].SettleCode
+                var option2ListValue = $(this)[0].Option2ListValue
+                var normalAmout = $(this)[0].NormalAmount
+                // var setTypeCode = $(this)[0].SetTypeCode
+
+                var valCode = selectProductID + "|" + addPrice
+                var valName = selectProductName + " (+" + addPrice + ")"
+                var htmlString = "";
+                var sb = new StringBuilder();
+                sb.AppendFormat('           <option value="{0}">{1}</option>', valCode, option2ListValue)
+                htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+                sb.RemoveAll();
+                //console.log("1 : " + setGroupCode)
+                $(".pro_case1").find("select[data-type=opt2]").append(htmlString)
+                $(".pro_case1").find("select[data-type=opt2]").find("option").last().data({
+                    "addPrice": addPrice
+                    , "GroupName": setGroupName
+                    , "GroupCode": setGroupCode
+                    , "tastePerfumeCode": tastePerfumeCode
+                    , "tastePerfumeName": tastePerfumeName
+                    , "setTypeCode": setTypeCode
+                    , "menuID": menuID
+                    , "discountSellPrice": discountSellPrice
+                    , "settleCode": settleCode
+                    , "optionCode": selectProductID
+                    //, "optionName": selectProductName
+                    , "optionName": option2ListValue
+                    , "constitutionProductionDivCode": constitutionProductionDivCode
+                    , "normalAmout": normalAmout
+                })
+
+            })
+        }
+
+        //선택 이벤트
+        $(".pro_case1").find("select[data-type=opt2]").on("change", function () {
+            var val = $(this).val()
+            var txt = $(this).find("option:selected").text()
+
+            if (val == "") {
+                return false;
+            }
+
+            var addPrice = $(this).find("option:selected").data("addPrice")
+            var setGroupName = $(this).find("option:selected").data("GroupName")
+            var setGroupCode = $(this).find("option:selected").data("GroupCode")
+            var tastePerfumeCode = $(this).find("option:selected").data("tastePerfumeCode")
+            var tastePerfumeName = $(this).find("option:selected").data("tastePerfumeName")
+            var setTypeCode = $(this).find("option:selected").data("setTypeCode")
+            var menuID = $(this).find("option:selected").data("menuID")
+            var discountSellPrice = $(this).find("option:selected").data("discountSellPrice")
+
+            var settleCode = $(this).find("option:selected").data("settleCode")
+            var optionCode = $(this).find("option:selected").data("optionCode")
+            var optionName = $(this).find("option:selected").data("optionName")
+            var constitutionProductionDivCode = $(this).find("option:selected").data("constitutionProductionDivCode")
+            var normalAmout = $(this).find("option:selected").data("normalAmout")
+            var len = $(".countInputList").find("[data-optionCode=" + optionCode + "]").length
+            if (len > 0) {
+                return false;
+            }
+            // console.log("1 : " + setGroupCode)
+            //var tmp = val.split("|")
+            //var selectProductID = tmp[0]
+            //var addPrice = tmp[1]
+            //var preAddPrice = $(this).data("addPrice")
+            //이전에 추가한 금액과 현제 선택한 추가금액 차익만큼 추가한후 선택한 추가금액 select box에 Data로 관리
+
+            var inputHtml = ""
+            inputHtml += '<li data-optionCode="' + optionCode + '">'
+            inputHtml += '	<strong class="goods_tit">' + txt + '</strong>'
+            inputHtml += '	<div class="goods_box">'
+            inputHtml += '		<div class="amount">'
+            inputHtml += '			<input type="text" class="txtItemCnt" value="1" readonly title="Nhập số lượng đại lượng">	' // 수량갯수 입력
+
+            inputHtml += '			<a href="javascript:void(0)" class="minus"><img src="/LCHS/Image/Btn/btn_s_minus02.gif" alt="Số lượng giảm"></a>' // 수량감소
+            inputHtml += '			<a href="javascript:void(0)"  class="plus"><img src="/LCHS/Image/Btn/btn_s_plus02.gif" alt="Tăng số lượng"></a>' // 수량증가
+            inputHtml += '		</div>'
+            inputHtml += '		<p class="price"><span class="totalOptionPrice">' + discountSellPrice + '</span>' + $.fn.getMessageTitle('LBL3037', Language)+ '</p>'
+            inputHtml += '		<a href="javascript:void(0)" class="btn_s_close"><img src="/LCHS/Image/Btn/btn_d_close.png" alt="Đóng"></a>' // 닫기
+            inputHtml += '	</div>'
+            inputHtml += '</li>'
+
+
+
+            // 총 가격 초기화 1604222
+            var totalPrice = discountSellPrice;
+            // 20170710 - 장바구니 수정;
+            // 이미 선택된 정보 항목이 있을 경우 선택된 옵션에 합계를 더해줌
+            try {
+                if ($('#totalSellPrice').html() != "") {
+                    totalPrice += parseInt($('#totalSellPrice').html().replace(',', ''));
+                };
+            } catch (e) { }
+
+            $("#countInputList").find("li").each(function () {
+                var discountSellPrice = $(this).data("discountSellPrice");
+                var cnt = $(this).find(".txtItemCnt").val();;
+                totalPrice += parseInt(discountSellPrice) * parseInt(cnt);
+            })
+            $("#totalSellPrice").html(ToMoney(totalPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"));
+
+
+            $(".countInputList").append(inputHtml)
+            $(".countInputList").find("li").last().data(
+                {
+                    "addPrice": addPrice
+                    , "GroupName": setGroupName
+                    , "GroupCode": setGroupCode
+                    , "tastePerfumeCode": tastePerfumeCode
+                    , "tastePerfumeName": tastePerfumeName
+                    , "setTypeCode": setTypeCode
+                    , "menuID": menuID
+                    , "discountSellPrice": discountSellPrice
+                    , "settleCode": settleCode
+                    , "optionCode": optionCode
+                    , "optionName": optionName
+                    , "constitutionProductionDivCode": constitutionProductionDivCode
+                    , "normalAmout": normalAmout
+                }
+            )
+
+
+            //상품갯수 차감(상품 갯수 차감에 따른 금액계산)
+            $(".minus").off("click").on("click", function () {
+                var target = $(this).closest("li")
+                var cnt = target.find(".txtItemCnt").val();               //상품 구매갯수
+                var discountSellPrice = target.data("discountSellPrice") //추가금액이 포함된 금액
+                //var discountSellPrice = _discountSellPrice
+                var addPrice = target.data("addPrice")
+                // var sellPrice = parseInt(discountSellPrice) + parseInt(addPrice)       //판매가격
+                // var TotalSellPrice = cnt * parseInt(sellPrice)  //총 판매 가격
+
+                //상품 구매갯수는 1이상으로 설정되어야 함
+                // 20170710 - 주석 해제
+                if (parseInt(cnt) > 1) {  // 1604222
+                    cnt = parseInt(cnt) - 1
+                    var totalOptionPrice = cnt * parseInt(discountSellPrice)
+                    // var totalOptionPrice = cnt * parseInt(addPrice)
+                    target.find(".txtItemCnt").val(cnt);
+                    target.find(".totalOptionPrice").html(ToMoney(totalOptionPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+                    calUnitPackageTotalPrice()
+                }
+
+            })
+
+            //상품갯수 증가(상품 갯수 증가에 따른 금액계산)
+            $(".plus").off("click").on("click", function () {
+                var target = $(this).closest("li")
+                var cnt = target.find(".txtItemCnt").val();               //상품 구매갯수
+                var discountSellPrice = target.data("discountSellPrice") //추가금액이 포함된 금액
+                //var discountSellPrice = _discountSellPrice
+                var addPrice = target.data("addPrice")
+                //var sellPrice = parseInt(discountSellPrice) + parseInt(addPrice)       //판매가격
+                cnt = parseInt(cnt) + 1
+                var totalOptionPrice = cnt * parseInt(discountSellPrice)
+                // var totalOptionPrice = cnt * parseInt(addPrice)
+                target.find(".txtItemCnt").val(cnt);
+                target.find(".totalOptionPrice").html(ToMoney(totalOptionPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+
+                calUnitPackageTotalPrice()
+
+            })
+
+            //상품 삭제
+            $(".btn_s_close").off("click").on("click", function () {
+                var len = $(".countInputList").find("li").length
+                //if (len <= 1) {  // 1604222
+                if (len <= 0) {
+                    new $.fn.modalPopGeneration({ type: 'message', code: 'COM1105', lang: 'LL', btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+                    return false;
+                }
+
+                var target = $(this).closest("li")
+                target.remove()
+                calUnitPackageTotalPrice()
+
+                $('.pro_case1 select').val(0); // 1604222
+
+            })
+
+            //$(".countInputList").find("li").last().find(".plus").click() // 1604222
+
+            //  _totalSellPrice = parseInt(_totalSellPrice) + parseInt(addPrice)
+            //  $("#totalSellPrice").html(_totalSellPrice.toString().replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+
+        })
+
+        //$(".pro_case1").find("select[data-type=opt2]").change() // 1604222
+        //$.fn.designSelectElement();
+    } catch (e) {
+        CheckException(e, "drawUnitPackage", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+//스윗트 단품 결졔금액 계산
+calUnitPackageTotalPrice = function () {
+    var totalPrice = 0
+    $(".countInputList").find("li").each(function () {
+        var addPrice = $(this).data("addPrice")
+        var discountSellPrice = $(this).data("discountSellPrice")
+        //var discountSellPrice = _discountSellPrice
+        var cnt = $(this).find(".txtItemCnt").val();
+        //totalPrice += ( parseInt(addPrice) + parseInt(discountSellPrice) ) * parseInt(cnt)
+        totalPrice += parseInt(discountSellPrice) * parseInt(cnt)
+    })
+    //var len = $(".countInputList").find("li").length
+    //if (len == 0) {
+    //    totalPrice = _discountSellPrice
+    //}
+
+    _totalSellPrice = totalPrice
+    $("#totalSellPrice").html(ToMoney(_totalSellPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+}
+
+//스윗트 콤보 결졔금액 계산
+calPackageTotalPrice = function () {
+    try {
+        var totalAddPrice = 0
+        $(".product_scroll").find("[data-type=opt2]").each(function () {
+            var addPrice = $(this).data("addPrice")
+            totalAddPrice += parseInt(addPrice)
+        })
+
+        _totalSellPrice = _discountSellPrice + totalAddPrice
+        $("#totalSellPrice").html(ToMoney(_totalSellPrice.toString())) //.replace(/(\d)(?=(\d{3})+$)/g, "$1,"))
+
+    } catch (e) {
+        CheckException(e, "calPackageTotalPrice", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+//시네마몰 상품이 없을경우 경고창
+cinemaMallDetailAlert = function () {
+    //경고성 레이어Html 구조는 스크립트에서 생성하기 때문에 경고성 레이어 호출후 Click 이벤트 발생
+    new $.fn.modalPopGeneration({ type: 'message', code: 'COM1002', lang: 'LL', btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+    //window.history.back(-1);
+    //레이어 클릭 이벤트
+    $(".pop_wrap").find(".btnc_confirm").on("click", function () {
+        window.history.back(-1)
+    })
+    $(".pop_wrap").find(".pop_close").on("click", function () {
+        window.history.back(-1)
+    })
+
+}
+
+//시네마몰 구매 및 선물
+setSellMall = function () {
+    try {
+        var mallJsonString = COOKIE_CART_NODE
+
+        // actionDivision: 1(스위트샵), 2(기프트샵)
+        var actionDivision = 2
+        if (CLASSIFICATION_SWEET_CODE == _classifictionCode) {
+            actionDivision = 1
+        }
+        var obj = {
+            MethodName: "SetSellMall"
+			, channelType: "HO"
+			, osType: BrowserAgent()
+			, osVersion: navigator.userAgent
+            //, multiLanguageID: Language
+            // 20160219 김태완 - 스위트샵,기프트샵 Language 고정
+        	, multiLanguageID: "LL" // Local Language
+            , cinemaID: _cinemaID
+			, memberNoOn: memberInfo.MemberNoOn
+			, mallJsonString: mallJsonString
+			, actionDivision: actionDivision
+        };
+        //console.log(obj)
+        JsonCall(CinemaServiceDomain + "/LCWS/CinemaMall/CinemaMallData.aspx", obj, returnJsonBuyData)
+    } catch (e) {
+        CheckException(e, "setSellMall", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+returnJsonBuyData = function (data) {
+    try {
+        var topNode = data.responseJSON
+        var isOk = topNode.IsOK
+        var resultMessage = topNode.ResultMessage
+
+        //console.log(topNode);
+
+        if (isOk == "false") {
+            //new $.fn.modalPopGeneration({ type: 'message', code: 'COM1002', lang: 'KR', btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+            new $.fn.modalPopGeneration({ type: 'server', lang: 'LL',serverMessage: resultMessage, btns: true, btnParam1: false, btnParam2: true, elem: $(this) });
+
+            //쿠키 원복
+            // 20160314 김태완 - 값이 없음(주석 처리)
+            //COOKIE_CART_NODE = cookieJson.ticketingState.goods;
+            return false;
+        } else {
+            //transNo 쿠키 등록
+            var transNo = topNode.Results.Items[0].TransNo
+            $.fn.cookieReset()
+            $.fn.cookieChanges('add', 'ticketingState.seatSelect.transNo', transNo);
+            $.fn.cookieChanges('add', 'ticketingState.seatSelect.cinemaId', _cinemaID);
+            resetBucketCookie() //시네몰(예매,시네마몰) 담기(장바구니)번호 초기화
+            //성공후결제창으로 이동
+                window.location.href = "/LCHS/Contents/ticketing/order-settlement.aspx"
+        }
+
+    } catch (e) {
+        CheckException(e, "returnJsonBuyData", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+
+}
+
+/****************************************
+* 시네마몰 상세 - 상품옵션 영역 브라우져 사이즈에 따라 위치 변경
+****************************************/
+setPositionResize = function () {
+    try {
+        var w = $(window).width();
+        var bodyWidth = $(".detail_inner").width()
+
+        var addPos = 93
+        if (parseInt(w) - parseInt(bodyWidth) <= 0) {
+            w = bodyWidth
+        }
+
+        var posLeft = parseInt(w / 2) + addPos
+        var cssPosName = $(".product_right").css("position")
+        if (cssPosName == "fixed") {
+            $(".product_right").css("left", posLeft)
+        }
+    } catch (e) {
+        CheckException(e, "setPositionResize", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+/****************************************
+* 시네마몰 상세 - 상품옵션 영역 스크롤 이벤트에 따라 위치 변경
+****************************************/
+setPositionScroll = function () {
+    try {
+        $(".product_right").removeClass("plroductFiexd")
+        var pOffTop = $(".product_right").offset().top
+        var pDivHeight = $(".product_right").outerHeight(true);
+        //var endPos = $(".sweet_box").offset().top
+
+        var endPos = 0
+        var contentScrollTop = $(".detail_twrap").offset().top
+        var contentWidth = $(".detail_twrap").outerHeight(true)
+        endPos = contentScrollTop + contentWidth
+
+        //  var orgPosLeft = $(".product_right").position().left
+        var w = $(window).width();
+        var bodyWidth = $(".detail_inner").width()
+        var scrollTop = $(document).scrollTop();
+        var curPosTop = parseInt(pOffTop) - parseInt(scrollTop)
+        var addPos = 93
+        if (parseInt(w) - parseInt(bodyWidth) <= 0) {
+            w = bodyWidth
+        }
+
+        var posLeft = parseInt(w / 2) + addPos
+        var endAddPos = parseFloat(endPos) - parseFloat(pDivHeight) - parseFloat(scrollTop) - 30
+        var posTop = 0
+
+        if (endAddPos <= 0) {
+            posTop = endAddPos;
+            $(".product_right").removeClass('last').addClass('last')
+        } else {
+            $(".product_right").removeClass('last')
+
+        }
+        //console.log(endAddPos)
+
+        if (curPosTop <= 0) {
+            $(".product_right").addClass("plroductFiexd")
+            $(".product_right").css("left", posLeft)
+            $(".product_right").css("top", posTop)
+
+        } else {
+            $(".product_right").removeClass("plroductFiexd")
+            $(".product_right").css("left", "auto")
+        }
+    } catch (e) {
+        CheckException(e, "setPositionScroll", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}

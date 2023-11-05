@@ -1,0 +1,1258 @@
+﻿/************************************************
+* 설          명: 영화관 - 영화관 상세
+* 작    성    자: 김태완
+* 최초 작성 일자: 15.09.21
+************************************************/
+/****************************************
+* 상수 선언
+****************************************/
+
+/****************************************
+* 전역변수 선언
+****************************************/
+// 개발 디버그 모드 시작
+_debug = true;					//디버깅 모드 설정용, 각 페이지에서 true로 설정하면, 오류를 alert 창으로 표시한다.
+_notRedirection = true;		//페이지 이동 금지 설정용, 각 페이지에서 true로 설정하면, 페이지 이동하지 않는다.
+// 개발 디버그 모드 끝
+
+//CINEMAID = "<%//=cinemaID%>"; // 영화관 코드
+CINEMANAME = ""; // 영화관 명
+CINEMALATITUDE = ""; // 위치정보 - 위도
+CINEMALONGITUDE = "";// 위치정보 - 경도
+FAVORITEDIVISIONCODE = "1"; // 선호 영화관 대분류 코드(선호영화관 팝업 선택시 사용)
+EVENTBLOCK = 4;
+EVENTTOTAL = 0;
+
+BEFORESTRHREF = 0;
+
+/****************************************
+* 함수 선언
+****************************************/
+
+aFeeGuideOpenonClickResult = function (obj) {
+
+};
+
+//===================================
+/**
+ * @Content  영화관 기본 정보 호출 - 영화관, 추천이벤트, cine#
+ * @param
+ **/
+callCinemaInfo = function () {
+    // was - JSON 호출(영화관 정보)
+    getCinemaDetailItem(DIVISIONCODE, DETAILDIVISIONCODE, CINEMAID);
+
+    // was - JSON 호출(추천 이벤트 리스트-영화관별)
+    //********************************************************************************************************
+    // 2016. 01. 11. by johnharu
+    // 영화관 상세의 추천 이벤트 제외
+    //********************************************************************************************************
+    //getRecommandationeventListForCinema(CINEMAID);
+
+    // was - JSON 호출(cine # 리스트-영화관별)
+    // 20170710 - 비호출 및 숨김처리
+    //getCinemaMallCinemaItems(CINEMAID);	//영화관 메뉴 Master.master.cs에서 처리, 2016.01.18
+    $('#a_sweet_box').hide();
+}
+
+//===================================
+/**
+ * @Content  영화관 My 영화관에 등록
+ * @param
+ *		obj : 웹서비스 결과값
+ **/
+setMyFavoriteCinemaByCinema = function (obj) {
+    try {
+        var result = obj.responseJSON;
+        if (result == undefined) return;
+        if (result.IsOK == undefined) return;
+
+        if (result.IsOK != "true") {								//Data에 오류가 있으면
+            throw new Error(result.ResultMessage);					//Error를 발생하고, Data 요청 결과 massage 를 전달한다.
+        }
+        else {
+        	var returnMessage = result.Results.Items[0].ReturnMessage;
+        	var returnResult = result.Results.Items[0].ReturnResult;
+
+        	alert(returnMessage);
+
+        	if (returnResult == 'Y') {
+        		if (FAVORITE == "I") {
+                    FAVORITE = "D";
+                    //$('#aFavorCinemaOpen').text('MY영화관 삭제');
+                    $('#aFavorCinemaOpen').html('<em>My Cinema Xóa </em><span>Đóng</span>'); // MY영화관 삭제, 닫힘
+                    $('#aFavorCinemaOpen').removeClass("on");
+				}
+                else if (FAVORITE == "D") {
+                    FAVORITE = "I";
+                    //$('#aFavorCinemaOpen').text('MY영화관 등록');
+                    $('#aFavorCinemaOpen').html('<em>Thêm rạp vào My Cinema</em><span>Mở</span>'); // MY영화관 추가, 열림
+                    $('#aFavorCinemaOpen').addClass("on");
+				}
+        	//} else if (returnResult == "F") {
+        	//	var cnt = returnMessage.indexOf("3개의");
+        	//	if (cnt > -1) {
+        	//		if (confirm("3개의 영화관이 다 등록 되었습니다.\r\n수정 하시겠습니까?")) {
+        	//			location.href = "/LCHS/Contents/My-Cinema/my-cinema-configure.aspx";
+        	//		}
+        	//	}
+        	//} else {
+        	//	alert(returnMessage);
+        	}
+		}
+    } catch (e) {
+        CheckException(e, "setMyFavoriteCinemaByCinema", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+//===================================
+/**
+ * @Content  영화관 지역 별 리스트
+ *		사용법 : getCinemaByArea('KO',1,'0001')
+ * @param
+ *		divisionCode : 관별 대분류 코드(전체:1, 스페셜관:2)
+ *		detailDivisionCode : 대분류 별 중분류 코드(전체일 경우: 지역, 스페셜관일 경우: 스페셜 타입 코드)
+ * @return
+ **/
+getCinemaByArea = function (divisionCode, detailDivisionCode) {
+    // channelType, osType, osVersion => 상위 공통 파라미터 참조
+    try {
+        var obj = {
+            MethodName: "GetCinemaByArea"
+			, channelType: "HO"
+			, osType: BrowserAgent()
+			, osVersion: navigator.userAgent
+			, multiLanguageID: Language
+			, divisionCode: divisionCode
+			, detailDivisionCode: detailDivisionCode
+        };
+        GetData(NOW_MENU_TYPE, obj, returnJsonDatatCinemaByArea);
+    } catch (e) {
+        //CheckException(e, "getCinemaByArea", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content  was JSON 호출 - 영화관 상세정보
+ *		사용법 : getCinemaDetailItem(1,'10',1002)
+ * @param
+ *		divisionCode : 관별 대분류 코드(전체:1, 스페셜관:2)
+ *		detailDivisionCode : 대분류 별 중분류 코드(전체일 경우: 지역, 스페셜관일 경우: 스페셜 타입 코드)
+ *		cinemaId : 영화관 코드(1016:월드타워) 
+ * @return
+ **/
+getCinemaDetailItem = function (divisionCode, detailDivisionCode, cinemaID) {
+    // channelType: 메소드 호출 채널 타입(homepage, mobile, mobileweb), osType:모바일의 경우 모바일 OS 타입, 웹의 경우 브라우져 타입, 
+    // osVersion: 모바일의 경우 OS 버젼정보, 웹의 경우 브라우져 버젼 정보
+    // divisionCode: 관별 대분류 코드(전체:1, 스페셜관:2)
+    // detailDivisionCode: 대분류 별 중분류 코드(전체일 경우: 지역, 스페셜관일 경우: 스페셜 타입 코드
+    // CinemaID: 영화관 ID
+    try {
+        var memberOnNo = 0;
+
+        if (checkLogin()) {
+            memberOnNo = memberInfo.MemberNoOn
+        }
+
+        var obj = {
+            MethodName: "GetCinemaDetailItem"
+			, channelType: "HO"
+			, osType: BrowserAgent()
+			, osVersion: navigator.userAgent
+			, divisionCode: divisionCode
+			, detailDivisionCode: detailDivisionCode
+			, cinemaID: cinemaID
+			, memberOnNo: memberOnNo
+        };
+        GetData(NOW_MENU_TYPE, obj, returnJsonDataCinemaDetailItem);
+    } catch (e) {
+        CheckException(e, "getCinemaDetailItem", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content was JSON 호출 - 이벤트(영화관별 추천 이벤트) 
+ * @param
+ *		cinemaId : 영화관 코드(1016:월드타워) 
+ * @return
+ **/
+getRecommandationeventListForCinema = function (cinemaId) {
+    try {
+        // 페이지 설정
+        var pageNo = parseInt($("#hideventListPage").val()) + 1;
+        $("#hideventListPage").val(pageNo);
+        if (pageNo > 1) {
+            EVENTBLOCK = EVENTTOTAL;
+        } else {
+            EVENTBLOCK = 4;
+        }
+
+    	/** @typedef 이벤트분류코드(10:L.셀렉션,20:영화&예매,30:우리동네영화관,40:무대인사&시사회,50:제휴&할인 */
+        var EventClassificationCode = "30";
+
+        var obj = {
+            MethodName: "GetEventLists"
+			, channelType: "HO"
+			, osType: BrowserAgent()
+			, osVersion: navigator.userAgent
+			, EventClassificationCode: EventClassificationCode
+			, SearchText: ''
+			, CinemaID: cinemaId
+			, PageNo: 1
+			, PageSize: EVENTBLOCK
+            /** 161026 이벤트 회원넘버파라미터 수정 */
+            , MemberNo:typeof memberInfo == 'object' ? memberInfo.MemberNoOn : "0"
+        };
+        GetData("event", obj, returnJsonDataEventListForCinema);
+    } catch (e) {
+        CheckException(e, "getRecommandationeventListForCinema", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content was JSON 호출 - cine#
+ * @param
+ *		cinemaId : 영화관 코드(1016:월드타워) 
+ * @return
+ **/
+getCinemaMallCinemaItems = function (cinemaId) {
+    try {
+        var obj = {
+            MethodName: "CinemaMallCinemaRecommendation"
+			, channelType: "HO"
+			, osType: BrowserAgent()
+			, osVersion: navigator.userAgent
+			, multiLanguageID: Language
+			, cinemaID: cinemaId
+        };
+        GetData("cinemamall", obj, returnJsonDataCinemaMallCinemaItems);
+    } catch (e) {
+        CheckException(e, "getCinemaMallCinemaItems", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content was JSON 결과 - 영화관 리스트
+ * @param
+ *		data
+ * @return
+ **/
+returnJsonDatatCinemaByArea = function (data) {
+    try {
+
+        // 영화관 코드 여부 확인
+        var isCinemaId = false;
+        if (CINEMAID != "") {
+            isCinemaId = true;
+        }
+
+        var cinemas = data.responseJSON.Cinemas;
+        var isOK = data.responseJSON.IsOK;
+        var resultMessage = data.responseJSON.ResultMessage; // 결과 메세지
+
+        if (isOK == 'true') {
+            var items = cinemas.Items;
+            var listCnt = items.length;
+
+            if (listCnt > 0) {
+
+                var htmlString = "";
+                var sb = new StringBuilder(); // 스트링 빌더 초기화
+                var sblink = new StringBuilder(); // 스트링 빌더 초기화
+                var i = 0;
+
+                $.each(items, function (key) {
+                    // 리스트
+                    var list = items[key];
+                    var divisionCode = ToString(list.DivisionCode);// 관별 대분류 코드(전체:1, 스페셜관:2)
+                    var detailDivisionCode = ToString(list.DetailDivisionCode);// 대분류 별 중분류 코드(전체일 경우: 지역, 스페셜관일 경우: 스페셜 타입 코드) 
+                    var cinemaID = ToString(list.CinemaID);// 영화관 코드 - 1016 
+                    var cinemaName = list.CinemaName;// 영화관명 
+                    var cinemaNameUS = list.CinemaNameUS;// 영화관명 - null  
+                    var sortSequence = list.SortSequence;// 정렬 - 1 
+                    var latitude = list.Latitude;// 위치 - 위도 (null)
+                    var longitude = list.Longitude;// 위치 - 경도 (null) 
+                    var distance = list.Distance;// 거리 - 0 
+                    var smartOrderYN = list.SmartOrderYN;// 관별 
+
+                    // 영화관 코드 - 파라미터 없을 경우 해당 지역의 첫번째 영화관의 코드를 넣는다.
+                    if (isCinemaId == false && i == 0) {
+                        if (divisionCode == DIVISIONCODE && detailDivisionCode == DETAILDIVISIONCODE) {
+                            CINEMAID = cinemaID;
+                        }
+                    }
+                    // css 클래스 적용
+                    var classActive = "";
+                    if (CINEMAID == cinemaID) {
+                        classActive = ' class="active"';
+                    }
+
+                    var linkOnclick = "";
+                    sblink.AppendFormat('onclick="goLotteCinemaDetail(\'{0}\',\'{1}\',\'{2}\',\'1\');"', divisionCode, detailDivisionCode, cinemaID);
+                    linkOnclick = sblink.ToString();	//StringBuilder 내용 문자열로 전환
+                    sblink.RemoveAll();								//StringBuilder 초기화
+
+                    // StringBuilder 시작
+                    sb.AppendFormat('<li {0}>', classActive);
+                    sb.AppendFormat('	<a href="javascript:void(0);" {0} title="{1}">{2}</a>', linkOnclick, cinemaName, cinemaName);
+                    sb.Append('</li>');
+
+                    i++;
+
+                });
+                htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+                sb.RemoveAll();									//StringBuilder 초기화
+
+                //$("#ulCinemaByArea").append(htmlString);
+
+                // 최초 영화관 코드 없을경우
+                if (isCinemaId == false && CINEMAID != "") {
+                    // 영화관 기본 정보 호출
+                    callCinemaInfo();
+                }
+                if (CINEMAID == "") {
+                    openPopupCinemaFailed();
+                }
+            } else {
+                // 영화관 정보 없음 레이어 팝업
+                openPopupCinemaFailed();
+            }
+
+        } else {	//Data에 오류가 있으면
+            //alert(resultMessage);
+            throw new Error(resultMessage);	//Error를 발생하고, Data 요청 결과 massage 를 전달한다.
+        }
+
+    } catch (e) {
+        //CheckException(e, "returnJsonDatatCinemaByArea", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content was JSON 결과 - 영화관 상세
+ * @param
+ *		data
+ * @return
+ **/
+returnJsonDataCinemaDetailItem = function (data) {
+    try {
+        var isCinemaFailed = false;
+        var isOK = data.responseJSON.IsOK;
+        var resultMessage = data.responseJSON.ResultMessage; // 결과 메세지
+
+        // 영화관 존재 여부 체크
+        // 영화관 존재 하지 않으면 모달 팝업으로 메세지 출력후 이전이로 이동한다.
+        var cinemaID = ToString(data.responseJSON.CinemaDetail.CinemaID);
+        if (cinemaID == "0" || cinemaID == "") {
+            //alert("해당 영화관이 존재 하지 않습니다.");
+            isCinemaFailed = true;// 영화관이 실제 존재하는지 체크
+
+            // 영화관 정보 없음 레이어 팝업
+            openPopupCinemaFailed();
+        }
+
+        if (isOK == 'true') {
+            var cinemaDetail = data.responseJSON.CinemaDetail;
+
+            //DIVISIONCODE = cinemaDetail.DivisionCode; //관별 대분류 코드(전체:1, 스페셜관:2)
+            //DETAILDIVISIONCODE = cinemaDetail.DetailDivisionCode; // 대분류 별 중분류 코드(전체일 경우: 지역, 스페셜관일 경우: 스페셜 타입 코드)
+            CINEMANAME = Trim(ToString(cinemaDetail.CinemaName)); // 영화관 명
+            CINEMALATITUDE = Trim(ToString(cinemaDetail.Latitude)); // 위치(위도)
+            CINEMALONGITUDE = Trim(ToString(cinemaDetail.Longitude)); // 위치(경도)
+
+            var cinemaName = Trim(ToString(cinemaDetail.CinemaName)); // 영화관 명 - null
+            var cinemaNameUS = Trim(ToString(cinemaDetail.CinemaNameUS)); // 영화관 명
+            var sortSequence = Trim(ToString(cinemaDetail.SortSequence)); // 정렬 - 0
+            var distance = Trim(ToString(cinemaDetail.Distance)); // 거리 - 0
+            var smartOrderYN = Trim(ToString(cinemaDetail.SmartOrderYN)); // - null
+
+            var specialScreenDivisionCode = cinemaDetail.SpecialScreenDivisionCode; // 스페셜관 아이콘
+            var cinemaKeyVisual = Trim(ToString(cinemaDetail.CinemaKeyVisual)); // 키 비주얼
+            var cinemaIntro = Trim(ToString(cinemaDetail.CinemaIntro)); // 인트로
+            var address = Trim(ToString(cinemaDetail.Address)); // 주소
+
+            var totalScreenCount = Trim(ToString(cinemaDetail.TotalScreenCount)); // 총 상영관수
+            var totalSeatCount = Trim(ToString(cinemaDetail.TotalSeatCount)); // 총 좌석수
+
+            var busMap = Trim(ToString(cinemaDetail.BusMap)); // 버스정보
+            var subWayMap = Trim(ToString(cinemaDetail.SubWayMap)); // 지하철정보
+            var myCarMap = Trim(ToString(cinemaDetail.MyCarMap)); // 자동차정보
+            var parkingInfo = Trim(ToString(cinemaDetail.ParkingInfo)); // 주차정보
+
+            var favorite = cinemaDetail.IsFavoriteCinema; // MY 영화관 여부
+            FAVORITE = favorite;
+
+            if (favorite == "I") {
+            	//$('#aFavorCinemaOpen').text('MY영화관 등록');
+                $('#aFavorCinemaOpen').html('<em>Thêm rạp vào My Cinema</em><span>Mở</span>'); // <em>MY영화관 추가 </em><span>열림</span>
+                
+            	$('#aFavorCinemaOpen').addClass("on");
+            }
+            else if (favorite == "D") {
+                //$('#aFavorCinemaOpen').text('MY영화관 삭제');
+                $('#aFavorCinemaOpen').html('<em>My Cinema Xóa </em><span>Đóng</span>'); // MY영화관 삭제, 닫힘
+            	$('#aFavorCinemaOpen').removeClass("on");
+            }
+
+        	// 스페셜관 아이콘 설정
+            var htmlString = "";
+            var sb = new StringBuilder();
+            if (specialScreenDivisionCode != null && specialScreenDivisionCode != undefined) {
+            	
+            	$.each(specialScreenDivisionCode, function (key, val) {
+            		// StringBuilder 시작
+                    sb.Append(setSpecialIconLink(val));
+                });
+                htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+                sb.RemoveAll();									//StringBuilder 초기화
+
+                $("#btnBox").append(htmlString);
+            }
+
+            // 키 비주얼 이미지 설정
+
+            // 이미지 체크 정규식 - '/' 또는 '.' 있다면
+            var imageCheck = /[/|.]/;
+
+            var keyVisualImg = "";
+            var resultKeyVisualImg = imageCheck.test(cinemaKeyVisual);
+
+            //20171102 아이피삭제처리
+            // 2015. 12. 04. by johnharu
+            // 임시 수정. 추후 삭제
+            //20171102 아이피삭제처리
+            
+            if (resultKeyVisualImg == true) {
+                keyVisualImg = '<img src="' + cinemaKeyVisual + '" alt="' + CINEMANAME + '" width="1920" height="420"/>';
+            } else {
+                // no 이미지 출력
+                keyVisualImg = '<img src="/LCHS/Image/Thum/moviet_no_image01.gif" alt="no-image" />';
+            }
+            $("#spanSubVisual").html(keyVisualImg);
+
+            // 영화관명
+            $("#cinemaName1").text(CINEMANAME); // 타이틀
+            $("#cinemaName3").text(CINEMANAME + " "); // 위치정보
+            $("#cinemaIntroduction").html(cinemaIntro); // 영화관 설명
+            $("#spanAddress").prepend(address + "<br/>"); // 주소
+            $("#cinemaAddress").text("Địa chỉ : " + address); // 주소
+            $("#emTotalScreenCount").text(totalScreenCount); // 총 상영관수
+            $("#emTotalSeatCount").text(ToMoney(totalSeatCount)); // 총 좌석수
+
+        	// 대중교통 - 버스
+            busMap = ReplaceAllCharacter(busMap, '<br/>', '</li><li>');
+            busMap = ReplaceAllCharacter(busMap, '<br>', '</li><li>');
+            busMap = ReplaceAllCharacter(busMap, '\r\n', '</li><li>');
+            var htmlBus = "<li>";
+            htmlBus += busMap
+            htmlBus += "</li>";
+            $("#cinemaBus").html(htmlBus);
+
+            // 대중교통 - 지하철
+            subWayMap = ReplaceAllCharacter(subWayMap, '<br/>', '</li><li>');
+            subWayMap = ReplaceAllCharacter(subWayMap, '<br>', '</li><li>');
+            subWayMap = ReplaceAllCharacter(subWayMap, '\r\n', '</li><li>');
+            var htmlSubway = "<li>";
+            htmlSubway += subWayMap;
+            htmlSubway += "</li>";
+            $("#cinemaSubway").html(htmlSubway);
+
+            // 대중교통 - 자가용
+            myCarMap = ReplaceAllCharacter(myCarMap, '<br/>', '</li><li>');
+            myCarMap = ReplaceAllCharacter(myCarMap, '<br>', '</li><li>');
+            myCarMap = ReplaceAllCharacter(myCarMap, '\r\n', '</li><li>');
+            var htmlCar = "<li>";
+            htmlCar += myCarMap;
+            htmlCar += "</li>";
+            $("#cinemaCar").html(htmlCar);
+
+            // 대중교통 - 주차정보
+            parkingInfo = ReplaceAllCharacter(parkingInfo, '<br/>', '</li><li>');
+            parkingInfo = ReplaceAllCharacter(parkingInfo, '<br>', '</li><li>');
+            parkingInfo = ReplaceAllCharacter(parkingInfo, '\r\n', '</li><li>');
+            var htmlParkingInfomation = "<li>";
+            htmlParkingInfomation += parkingInfo;
+            htmlParkingInfomation += "</li>";
+            $("#cinemaParkingInfomation").html(htmlParkingInfomation);
+
+        } else {	//Data에 오류가 있으면
+            //alert(resultMessage);
+            throw new Error(resultMessage);	//Error를 발생하고, Data 요청 결과 massage 를 전달한다.
+        }
+
+        // 151028 임시 배포 로직 추가 시작
+        var testDeply = false;// 임시 배포(테스트 배포:true, real 배포:false) 
+        var noImage = "";
+        if (testDeply == false) {
+            if (CINEMALATITUDE == "" || CINEMALONGITUDE == "") {
+                noImage = '<img src="/LCHS/Image/Thum/moviet_no_image02.gif" alt="no-image" />';
+                $("#cinemaMap").html(noImage);
+            } else {
+                // naver map 위치정보
+                //setNaverMap();
+                setTimeout("setNaverMap()", 200);
+            }
+        } else {
+            noImage = '<img src="/LCHS/Image/Thum/moviet_no_image02.gif" alt="no-image" />';
+            $("#cinemaMap").html(noImage);
+        }
+
+        // 예매 정보
+        if (isCinemaFailed == false) {
+        	//drawTicket();
+			// 20160105 김태완 - 데이터 로딩이미지 1개로 보이기 위해 딜레이  "0" 으로 수정함
+            setTimeout("drawTicket()", 0);
+        }
+
+        var myLatLng = { lat: parseFloat(CINEMALATITUDE), lng: parseFloat(CINEMALONGITUDE) };
+
+        // Create a map object and specify the DOM element
+        // for display.
+        var map = new google.maps.Map(document.getElementById('cinemaMap'), {
+            center: myLatLng,
+            zoom: 17
+        });
+
+        // Create a marker and set its position.
+        var marker = new google.maps.Marker({
+            map: map,
+            position: myLatLng,
+            title: CINEMANAME
+        });
+
+        // 151028 임시 배포 로직 추가 끝
+    } catch (e) {
+		// 20160307 김태완 - 로딩중 다른영화관 선택시 오류 발생으로 주석 처리
+        //CheckException(e, "returnJsonDataCinemaDetailItem", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+
+//===================================
+/**
+ * @Content was JSON 결과 - 이벤트 리스트-영화관별 추천
+ * @param
+ *		data
+ * @return
+ **/
+returnJsonDataEventListForCinema = function (data) {
+    try {
+        var jsonObj = data.responseJSON;
+        var isOK = jsonObj.IsOK;
+        var resultMessage = jsonObj.ResultMessage;
+
+        $("#aEventMore").hide();// 더보기 - 숨김
+
+        if (isOK != "true") {								    //Data에 오류가 있으면
+            throw new Error(resultMessage);   //Error를 발생하고, Data 요청 결과 massage 를 전달한다.
+        }
+        $("#eventList").html("");
+        var totalCount = jsonObj.TotalCount;
+
+        // 더보기 클릭시 전체를 다시 보여준다.
+        EVENTTOTAL = totalCount;
+        //totalCount = 4; // 테스트
+        // 더보기 버튼 숨김
+        var pageNo = parseInt($("#hideventListPage").val());
+        if (totalCount <= 4 || pageNo > 1) {
+            $("#aEventMore").hide();
+            //$("#aClose").show();
+        }
+            // 첫번째 페이지이면 더보기 버튼 보이고, 닫기 버튼 숨김
+        else if (pageNo == 1) {
+            $("#aEventMore").show();
+            //$("#aClose").hide();
+        }
+
+        // 이벤트 - 리스트
+        var eventInfosJsonData = jsonObj.Items;
+        var listCnt = eventInfosJsonData.length;
+
+        var htmlString = "";
+        var sb = new StringBuilder(); // 스트링 빌더 초기화
+
+        if (listCnt > 0) {
+
+            var sbEventLink = new StringBuilder(); // 스트링 빌더 초기화
+
+            $.each(eventInfosJsonData, function (key) {
+                // 리스트
+                var list = eventInfosJsonData[key];
+
+                var cinemaAreaCode = list.CinemaAreaCode; // 지역 코드
+                var cinemaArea = list.CinemaAreaName; // 지역
+                var cinemaCode = list.CinemaID;
+                var cinemaName = list.CinemaName;
+                var eventCloseSoonYN = list.CloseNearYN;
+                var eventId = list.EventID;// 이벤트 아이디 - 3341
+                var eventName = list.EventName;// 설문이벤트#05
+                var eventSeq = list.EventSeq;// 1
+                var eventType = list.EventTypeCode;// 이벤트 타입 - 104
+                var eventTypeName = list.EventTypeName;// 이벤트 타입 명 - 설문형
+                var thumbnailImageUrl = list.ImageUrl; // 이미지 경로
+                var eventStartDate = list.ProgressStartDate; // 이벤트 시작 일자
+                var eventEndDate = list.ProgressEndDate; // 이벤트 종료 일자
+                var remainsDayCount = list.RemainsDayCount; // 이벤트 종료 일자
+
+                var eventNameVN = CutString(eventName, 50, '...'); // 제목 길이 설정
+
+                // 마감 여부 설정
+                if (eventEndDate == null || eventEndDate == "") {
+                    eventEndDate = "2020-12-31";
+                }
+
+                var today = TODAY; // 서버측 시간을 가져온다.
+                var dateArray = eventEndDate.split("-");
+                var dateObj = new Date(dateArray[0], Number(dateArray[1]) - 1, dateArray[2]);
+                var betweenDay = parseInt((dateObj.getTime() - today.getTime()) / 1000 / 60 / 60 / 24) + 1;
+
+                // StringBuilder 시작
+                sb.Append('<li>');
+
+                // 마감여부
+                if (eventCloseSoonYN == "Y") {
+                    sb.Append('<span class="deadline">Hạn chót sắp xảy ra</span>'); // 마감<br />임박
+                }
+                // ########## 이벤트 상세 링크 설정 ##########
+                // 이벤트 상세 페이지 경로 설정 - eventType 에 따라 이벤트 상세 페이지 URL을 받아오는 공통함수 호출
+                // 스크립트 파일 위치 - /LCMS/Script/Common/Common.js
+                var eventLinkOnclick = "";
+                sbEventLink.AppendFormat(' onclick="goEventDetail1(\'{0}\',\'{1}\', \'1\');"', eventId, eventType);
+                eventLinkOnclick = sbEventLink.ToString();	//StringBuilder 내용 문자열로 전환
+                sbEventLink.RemoveAll();								//StringBuilder 초기화
+                // ########## 이벤트 상세 링크 설정 ##########
+
+                sb.AppendFormat('	<a href="javascript:void(0);" {0} >', eventLinkOnclick);
+                sb.AppendFormat('		<img src="{0}" alt="{1}" />', thumbnailImageUrl, eventName);
+                sb.Append('					<dl class="imgsub">');
+                sb.AppendFormat('			<dt class="event">{0}</dt>', eventNameVN);
+                sb.AppendFormat('			<dd class="eventdate"><span>{0}~{1}</span></dd>', GetViewDate(eventStartDate, "."), GetViewDate(eventEndDate, "."));  // 기간
+                sb.Append('					</dl>');
+                sb.Append('				</a>');
+                sb.Append('				<p class="layer_hover">');
+                sb.AppendFormat('		<a href="javascript:void(0);" {0} >{1}</a>', eventLinkOnclick, cinemaArea);
+                sb.Append('				</p>');
+                sb.Append('</li>');
+
+            });
+        } else {
+            // 데이터 없음
+            sb.Append('<div class="srchResult_none">');
+            sb.Append('<span class="txt">Không có sự kiện đang chờ xử lý nào.</span>'); // 진행중인 이벤트가 없습니다.
+            sb.Append('</div>');
+        }
+        htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+        sb.RemoveAll();									//StringBuilder 초기화
+
+        $("#eventList").append(htmlString);
+    } catch (e) {
+        //alert(e.message);
+        //CheckException(e, "returnJsonDataEventListForCinema", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content was JSON 결과 - cine#(추천 매점상품)
+ * @param
+ *		data :
+ * @return
+ **/
+returnJsonDataCinemaMallCinemaItems = function (data) {
+    try {
+        var jsonObj = data.responseJSON;
+        var isOK = jsonObj.IsOK;
+        var resultMessage = jsonObj.ResultMessage;
+        
+        if (isOK == 'true') {
+
+            // cine# - 리스트
+            var objCinemaMallItems = jsonObj.CinemaMallItems;
+            var itemCount = objCinemaMallItems.ItemCount;
+
+            var htmlString = "";
+            var sb = new StringBuilder();
+            
+            if (itemCount > 0) {
+
+            	//$("#a_sweet_box").show();// 영역 보임
+
+                var items = objCinemaMallItems.Items;
+
+                $.each(items, function (key) {
+
+                	if (key <= 4) {
+                		// 리스트
+                		var list = items[key];
+
+                		var displayLargeClassificationCode = list.DisplayLargeClassificationCode;// "10"
+                		var displayMiddleClassificationCode = list.DisplayMiddleClassificationCode;// "11"
+                		var displayMiddleClassificationName = list.DisplayMiddleClassificationName;// "베스트"
+                		var cinemaID = list.CinemaID;// "1016"
+                		var displayItemID = list.DisplayItemID;// "40105001",
+                		var displayItemName = list.DisplayItemName;// "봄녹차(캔)",
+                		var useRestrictionsDayName = list.UseRestrictionsDayName;// "구매 후 30일",
+                		var displayDate = list.DisplayDate;// null
+                		var customerBuyRestrictionsName = list.CustomerBuyRestrictionsName;// "제한없음",
+                		var currentSellPrice = list.CurrentSellPrice;// 11000
+                		var discountSellPrice = list.DiscountSellPrice;// 판매가격 - 11000
+                		var refundPassibleDayCount = list.RefundPassibleDayCount;// 30
+                		var packageYN = list.PackageYN;// 0
+                		var packageConstitutionProduct = list.PackageConstitutionProduct;// null
+                		var itemImageUrl = list.ItemImageUrl;// "/LCHS/Image/Thum/thum_goods01.png",
+                		var displayItemDescription = list.DisplayItemDescription;// "전시품목설명",
+                		var sortSequence = list.SortSequence;// 1
+
+                		var displayItemNameVN = CutString(displayItemName, 50, '...'); // 제목 길이 설정
+
+                	    //var currentSellPrice = ToMoney(currentSellPrice.toString()) + "원";
+                		//var discountSellPrice = ToMoney(discountSellPrice.toString());
+
+                		// 테스트 링크
+                		linkUrl = "javascript:goLotteCinemaMallList('10', '" + CINEMAID + "', '" + displayItemID + "', '1' );";
+
+                		// StringBuilder 시작
+                		sb.Append('<li>');
+
+                		sb.AppendFormat('	<a href="javascript:void(0);" title="Xem thông tin chi tiết phim" onclick="{0}">', linkUrl); // 새창 열림
+                		sb.Append('<span class="product_thum">');
+                		sb.AppendFormat('		<img src="{0}" alt="{1}" />', itemImageUrl, displayItemName);
+                		sb.Append('</span>');
+
+                		sb.Append('<dl class="product_txt">');
+                		sb.AppendFormat('<dt class="product_tit">{0}</dt>', displayItemNameVN);
+                		sb.AppendFormat('<dd class="date"><span>Hạn sử dụng sản phẩm  </span>  {0}</dd>', useRestrictionsDayName); // 사용기간
+                		sb.Append('</dl>');
+
+                		sb.Append('<p class="product_price">');
+                		if (parseInt(currentSellPrice) > parseInt(discountSellPrice)) {
+                		    sb.AppendFormat('<span class="dash_price"><del>{0}</del></span>', ToMoney(currentSellPrice.toString()));
+                		}
+                		
+                		sb.AppendFormat('<span class="price"><em>{0}</em><span>{1}</span></span>', ToMoney(discountSellPrice.toString()), $.fn.getMessageTitle('LBL3037', Language));
+                		sb.Append('</p>');
+
+                		sb.Append('</a>');
+                		sb.Append('</li>');
+                	}
+                });
+            } else {
+                // 데이터 없음
+                sb.Append('<div class="srchResult_none">');
+                sb.Append('<span class="txt">Không có tiện ích đi kèm</span>'); //추천 매점상품이 없습니다.
+                sb.Append('</div>');
+
+                //$("#a_sweet_box").hide();// 영역 전체 숨김
+			}
+            htmlString = sb.ToString();					//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();									//StringBuilder 초기화
+
+            $("#sweetList").append(htmlString);
+        } else {//Data에 오류가 있으면
+            //alert('데이터가 존재하지 않습니다.');
+            //throw new Error(resultMessage);	//Error를 발생하고, Data 요청 결과 massage 를 전달한다.
+        }
+    } catch (e) {
+        //alert(e.message);
+        //CheckException(e, "returnJsonDataCinemaMallCinemaItems", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content 영화관 정보 없음 레이어 팝업
+ * @param
+ * @return
+ **/
+openPopupCinemaFailed = function () {
+    var popSet = new $.fn.modalPopGeneration({
+        type: 'confirm'
+		, code: 'COM0004'
+		, lang: 'LL' // Local Language
+		, btns: true, btnParam1: false, btnParam2: true
+		, elem: $(this)
+		, cancel: '.pop_btn_close '// 알림창 X 이미지에 이벤트(닫기, execution2) 적용 - execution2 가 cancel 이벤트에 있으므로
+		, execution: locationBack	// /Script/Common/Util.js
+		, execution2: locationBack
+    });
+}
+
+//===================================
+/**
+ * @Content naver map 설정
+ * @param
+ * @return
+ **/
+setNaverMap = function () {
+    try {
+        //var elat = "37.5675451"
+        //var elng = "126.9773356"
+        var elat = CINEMALATITUDE;
+        var elng = CINEMALONGITUDE;
+
+        var map = new naver.maps.Map('cinemaMap', {
+            size: new naver.maps.Size(980, 480),
+            mapTypeControl : true // 일반, 위성 버튼 보이기 (v3 에서 바뀐 방식)
+        });
+
+        var cityHall = new naver.maps.LatLng(elat, elng);
+        map.setCenter(cityHall);
+        map.setZoom(11);
+
+        var bounds = map.getBounds();
+        map.fitBounds(bounds);
+
+        map.panBy(new naver.maps.Point(15, -30));
+
+        var markerOptions = {
+            position: cityHall,
+            icon: {
+                url: 'http://static.naver.net/maps/v3/pin_default.png',
+                size: new naver.maps.Size(22, 35),
+                anchor: new naver.maps.Point(11, 35)
+            }
+        };
+
+        var marker = new naver.maps.Marker(markerOptions);
+
+        marker.setMap(map); // 추가
+
+        map.setOptions({
+            zoomControl: true,
+            zoomControlOptions: {
+                position: naver.maps.Position.TOP_LEFT
+            }
+        });
+
+        //var oSeoulCityPoint = new nhn.api.map.LatLng(elat, elng);
+        //var defaultLevel = 11;
+        //nhn.api.map.setDefaultPoint('LatLng');
+        //oMap = new nhn.api.map.Map('cinemaMap', {
+        //    point: oSeoulCityPoint,
+        //    zoom: defaultLevel,
+        //    enableWheelZoom: true,
+        //    enableDragPan: true,
+        //    enableDblClickZoom: false,
+        //    mapMode: 0,
+        //    activateTrafficMap: false,
+        //    activateBicycleMap: false,
+        //    minMaxLevel: [1, 14],
+        //    size: new nhn.api.map.Size(980, 480)
+        //});
+        //var oSize = new nhn.api.map.Size(28, 37);
+        //var oOffset = new nhn.api.map.Size(14, 37);
+        //var oIcon = new nhn.api.map.Icon('http://static.naver.com/maps2/icons/pin_spot2.png', oSize, oOffset);
+        //var oMarker = new nhn.api.map.Marker(oIcon, { title: '마커 : ' + oSeoulCityPoint.toString() });
+        //oMarker.setPoint(oSeoulCityPoint);
+        //oMap.addOverlay(oMarker);
+
+        //var oSlider = new nhn.api.map.ZoomControl();
+        //oMap.addControl(oSlider);
+        //oSlider.enableWheelZoom(true);
+        //oSlider.setPosition({
+        //    top: 10,
+        //    left: 10
+        //});
+    } catch (e) {
+        //alert(e.message);
+        //CheckException(e, "setNaverMap", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+};
+
+//===================================
+/**
+ * @Content naver map 길찾기
+ * @param
+ * @return
+ **/
+goWaySearch = function () {
+    try {
+        var elat = CINEMALATITUDE;
+        var elng = CINEMALONGITUDE;
+        var url = "http://map.naver.com/index.nhn?slat=&slng=&eslat=&eslng=&stext=&elat=" + elat + "&elng=" + elng + "&eelat=&eelng=&etext=" + CINEMANAME + "&menu=route&pathType=1";
+        window.open(url);
+    } catch (e) {
+        //alert(e.message);
+        CheckException(e, "goWaySearch", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+// 왼쪽부터 정해진 숫자만큼 0을 채운다.
+function addLeadingZeros(n, length) {
+	var str = (n > 0 ? n : -n) + "";
+	var zeros = "";
+	for (var i = length - str.length; i > 0; i--)
+		zeros += "0";
+	zeros += str;
+	return n >= 0 ? zeros : "" + zeros;
+}
+//===================================
+/**
+ * @Content 회차 정보 출력
+ * @param
+ * @return
+ **/
+drawTicket = function () {
+
+	// 일반관의 지역 코드가 4자리가 아니면 0 추가해서 4자리로 설정 한다. - 스크립트 요청
+	if (ToString(DIVISIONCODE) == "1") {
+		var detailCodeCnt = ToString(DETAILDIVISIONCODE).length;
+		if (detailCodeCnt < 4) {
+			DETAILDIVISIONCODE = addLeadingZeros(ToString(DETAILDIVISIONCODE), 4);
+		}
+	}
+    cinemaReservation = new $.fn.ticketReservation({
+        target: '.cont_cinema'
+		, step: 1
+		, screenData: DIVISIONCODE
+		, areaData: DETAILDIVISIONCODE
+		, cinemaData: CINEMAID
+    });
+}
+
+//===================================
+/**
+ * @Content 스페셜관 아이콘 Html 생성 후 반환
+ * @param
+ *		code : 스페셜 코드
+ * @return
+ *		스페셜관 아이콘 HTML
+ **/
+setSpecialIconLink = function (code) {
+    var path, icon, link, alt;
+    try {
+    	path = "/LCHS/Image/Btn/";
+    	link = "/LCHS/Contents/Cinema/charlotte-special-cinema.aspx?divisionCode=2&screendivcd=" + code;
+        icon = "";
+        switch (code) {
+            case "200": //씨네커플
+                icon = "btn_cinecouple.png";
+                alt = "cinecouple";
+                break;
+            case "300": //샤롯데
+                icon = "btn_charlotte.png";
+                alt = "charlotte";
+                break;
+            case "301": //샤롯데 Private - 삭제됨
+                //icon = "btn_charlottePrivate.gif";
+                //alt = "charlotte Private";
+                break;
+            case "400": //아르떼클래식 - 삭제됨
+                //icon = "btn_arte.gif";
+                //alt = "ARTE";
+                break;
+            case "401": //아르떼애니 - 삭제됨
+                //icon = "btn_arte.gif";
+                //alt = "ARTE";
+                break;
+            case "900": //수퍼사운드  - 삭제됨
+                //icon = "btn_supersound.gif";
+                //alt = "supersound";
+                break;
+            case "910": //수퍼바이브 - 삭제됨 20170717 suho 
+                //icon = "btn_supervibe.png";
+                //alt = "supervibe";
+                break;
+            case "930": //수퍼4D
+                icon = "btn_super4d.png";
+                alt = "super4d";
+                break;
+            case "940": //수퍼플레스
+                icon = "btn_superflex.png";
+                alt = "superflex";
+                break;
+            case "941": //수퍼G
+                icon = "btn_superflexG.png";
+                alt = "superflexG";
+                break;
+            case "950": //씨네비즈
+                icon = "btn_cinebiz.png";
+                alt = "cinebiz";
+                break;
+            case "960": //씨네패밀리
+                icon = "btn_cinefamily.png";
+                alt = "cinefamily";
+                break;
+            case "980": //슈퍼S
+                icon = "btn_superS.png";
+                alt = "superS";
+                break;
+            default: icon = "";
+        }
+
+        if (icon != "") {
+            var htmlString = "";
+            var sb = new StringBuilder();
+            // StringBuilder 시작
+            sb.AppendFormat('<a href="{0}">', link);
+            sb.AppendFormat('<img src="{0}" target="_blank" alt="{1}" />', path + icon, alt);
+            sb.Append('</a>');
+            icon = sb.ToString();				//StringBuilder 내용 문자열로 전환
+            sb.RemoveAll();						//StringBuilder 초기화
+        }
+    } catch (e) {
+        CheckException(e, "setSpecialIconLink", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+
+    return icon
+}
+
+//===================================
+/**
+ * @Content 이벤트 닫기 
+ * @param
+ * @return
+ **/
+closeEventList = function () {
+    try {
+        $("#eventList").html("");
+        // JSON 호출(추천 이벤트 리스트-영화관별)
+        $("#hideventListPage").val("0");
+        getRecommandationeventListForCinema(CINEMAID);
+    } catch (e) {
+        //alert(e.message);
+        CheckException(e, "closeEventList", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+
+//===================================
+/**
+ * @Content 영화관 탭 메뉴 네비게이션
+ * @param
+ *		elem : 선택된 객체
+ * @return
+ **/
+setSelectedNavi = function (elem) {
+    try {
+        $("#ulSubTap li").removeClass("on");
+        $(elem).parent().addClass("on");
+
+    	var strHref = $(elem).attr('href');
+    	var position = $(strHref).offset().top;
+    	var tapHeight = $("#ulSubTap").height();
+
+		// 탭이 상단에 고정 됐을때와 위치 값이 틀리므로
+    	if ($('.bg_fixed').hasClass('on')) {
+    		//alert("111");
+    		$('html, body').animate({ scrollTop: position - tapHeight }, 10);
+    	} else {
+    		//alert("222");
+    		$('html, body').animate({ scrollTop: position - (tapHeight * 2 + (tapHeight / 2)) }, 10);
+    	};
+
+    } catch (e) {
+        //alert(e.message);
+        CheckException(e, "setSelectedNavi", NOW_MENU_TYPE);					//오류 발생 처리
+    }
+}
+//setSelectedNavi = function (elem) {
+//	try {
+//		$("#ulSubTap li").removeClass("on");
+//		$(elem).parent().addClass("on");
+
+//		// 이전 앵커태그를 저장한다. 
+//		// 이전 값이 "#a_cont_cinema" 일경우 다른 앵커 이동시 위치 설정이 달라지므로.
+//		var beforeStrHref = BEFORESTRHREF;
+//		var strHref = $(elem).attr('href');
+//		var addHeight = 80;
+
+//		// 현재 선택을 저장
+//		BEFORESTRHREF = strHref;
+
+//		if (beforeStrHref != "#a_cont_cinema") {
+//			addHeight = 0;
+//		}
+//		// 앵커 이동
+//		if (strHref != "#a_cont_cinema") {
+//			if (strHref == "#a_map_cont") {
+//				$('html,body').animate({ scrollTop: $(strHref).offset().top - 100 - addHeight }, 10);
+//			} else if (strHref == "#a_event_fwrap") {
+//				$('html,body').animate({ scrollTop: $(strHref).offset().top - 50 - addHeight }, 10);
+//			} else if (strHref == "#a_transport") {
+//				var cntTop = parseInt($(strHref).offset().top);
+//				var tempCnt = 50;
+//				//alert(cntTop);
+//				if (cntTop > 6300) {
+//					tempCnt = 120;
+//				}
+//				$('html,body').animate({ scrollTop: $(strHref).offset().top - tempCnt - addHeight }, 10);
+//			} else if (strHref == "#a_sweet_box") {
+//				$('html,body').animate({ scrollTop: $(strHref).offset().top - 50 - addHeight }, 10);
+//			}
+//		}
+
+//	} catch (e) {
+//		//alert(e.message);
+//		CheckException(e, "setSelectedNavi", NOW_MENU_TYPE);					//오류 발생 처리
+//	}
+//}
+
+//===================================
+/**
+ * @Content 샘플 링크 없어서 알럿 메세지로 대체 - 테스트에만 사용
+ * @param
+ *		msg : 메세지 존재하면 출력
+ * @return
+ **/
+goTestUrl = function (msg) {
+    var altMsg = "Đi đến liên kết đó."; // 해당 링크로 이동합니다.
+    if (msg != "" && msg != undefined) {
+        altMsg = msg;
+    }
+    alert(altMsg);
+    return;
+}
+
+$(document).ready(function () {
+    try {
+        // 2016.05.03 웹접근성 Title 세팅
+        if ($('.depth_03 .active a').length != 0) {
+            document.title = $('.depth_03 .active a').first().attr('title') + ' | ' + $('.depth .active a').first().attr('title') + ' | Rạp chiếu phim | Lotte Cinema'; // 영화관 | 롯데시네마';
+        }
+        else {
+            document.title = 'Rạp chiếu phim | Lotte Cinema'; // 영화관 | 롯데시네마
+        }
+
+        // 파라메터 정보가 없는 경우 첫번째 지역의 극장정보를 무조건 표시한다.
+        if (DIVISIONCODE == "" && DETAILDIVISIONCODE == "") {
+            var firstPageUrl = $('.depth_03 .active a')[0].href;
+            var tempData = firstPageUrl.split("?");
+            if (tempData.length > 0) {
+                var paramData = tempData[1].split("&");
+                for (var i = 0 ; i < paramData.length ; i++) {
+                    var data = paramData[i].split("=")
+                    if (data[0] == "divisionCode") {
+                        DIVISIONCODE = data[1]
+                    }
+                    if (data[0] == "detailDivisionCode") {
+                        DETAILDIVISIONCODE = data[1]
+                    }
+                    if (data[0] == "cinemaID") {
+                        CINEMAID = data[1]
+                    }
+                }
+            }
+        }
+
+		// was - 영화관 지역 별 리스트
+        getCinemaByArea(DIVISIONCODE, DETAILDIVISIONCODE);
+
+		if (CINEMAID != "") {
+			callCinemaInfo();
+		}
+
+		// MY영화관 레이어 팝업 열기
+		$("#aFavorCinemaOpen").click(function () {
+
+			FAVORITEDIVISIONCODE = "1";
+
+			if (memberInfo != "" && memberInfo != undefined) {
+
+				// 비회원 페이지 접근
+				if (memberInfo.LotteCinemaMemberGubun == "3") {
+					//***********************************************************************************************************
+					//2016. 01. 10. by johnharu
+					// 회원 여부를 판단하는 필드로 MemberGubun 대신 LotteCinemaMemberGubun 으로 수정
+					// LotteCinemaMemberGubun 값의 유형
+					// 1 : 정회원
+					// 2 : 간편회원(준회원)
+					// 3 : 비회원
+					//***********************************************************************************************************
+
+					new $.fn.modalPopGeneration({
+						type: 'message'
+						, code: 'COM1202'
+						, lang: 'LL' // Local Language
+						, btns: true, btnParam1: false, btnParam2: true
+						//, elem: $("#agree1")
+					});
+				} else {
+
+					var params = {
+						MethodName: "SetMyFavoriteCinemaByCinema",
+						channelType: "HO",
+						osType: BrowserAgent(),
+						osVersion: navigator.userAgent,
+						memberOnNo: memberInfo.MemberNoOn,
+						favoriteCinema: CINEMAID,
+						multiLanguageId: Language,
+						actionDiv: FAVORITE
+					};
+
+					try {
+						GetData("mycinema", params, setMyFavoriteCinemaByCinema, "sync");
+					} catch (e) { CheckException(e, "SetMyFavoriteCinemaByCinema", NOW_MENU_TYPE); }
+
+					//// html 로드
+					////$("#areaFavorCinemaDiv").load(CinemaServerDomain + "/View/favorite-cinema-setting.html");
+					//// 레이어 팝업 로드
+					//var popSet = new $.fn.modalPopGeneration({ type: 'load', url: CinemaServerDomain + '/View/favorite-cinema-setting.html', btns: false, btnParam1: false, btnParam2: true, elem: $(this) });
+				}
+			} else {
+				// 레이어 팝업 - 로그인 호출(/LCHS/Master/Master.Master)
+				openLoginPopup();
+			}
+		});
+
+		// todo - 개발 안됨
+		// 요금안내 레이어 팝업 열기 20170404 sunho 쿼리스트링 추가 
+		$("#aFeeGuideOpen").click(function (e) {
+			var popSet = new $.fn.modalPopGeneration({ type: 'load', url: '/LCHS/view/cinema-money.html?v=20230726001', btns: false, btnParam1: false, btnParam2: true, elem: $(this) });
+		});
+
+		// todo - 개발 안됨
+		// 상영시간표(예매) 더보기 클릭
+		$("#btnMovie").click(function () {
+			//alert("더보기 클릭");
+		});
+
+		// 추천 이벤트 더보기 클릭
+		//********************************************************************************************************
+		// 2016. 01. 11. by johnharu
+		// 영화관 상세의 추천 이벤트 제외
+		//********************************************************************************************************
+		//$("#aEventMore").click(function () {
+		//    getRecommandationeventListForCinema(CINEMAID);
+		//});
+
+		// cine# 더보기 클릭
+		$("#aSweetList").click(function () {
+			goLotteCinemaMallList(CLASSIFICATION_SWEET_CODE, CINEMAID, '', '1');
+		});
+
+		// 분실물 센터 더보기: 삭제요청으로 제거
+		//$("#aLostArticleMore").click(function () {
+		//    // 고객센터 - 분실물 센터 목록 - 새창열기
+		//    customerCenterMenu(4, '1');
+		//});
+
+		// 분실물센터 - 슬라이드: 삭제요청으로 제거
+		//var lostArticleSlideUp = new $.fn.noticeSlideUp({
+		//    methodName: 'GetLostArticleItemCinema'
+		//	, target: '.center_inner'
+		//	, slide: '.notice_area'
+		//	, item: 'li'
+		//	, auto: false
+		//	, delay: 2000
+		//    , cinemaID: CINEMAID
+		//});
+		//// 공지사항 삭제후 재 검색 - 슬라이드
+		////$(".notice_inner ul").find("li").empty();
+		//var noticeSlideUp = new $.fn.noticeSlideUp({
+		//    methodName: 'GetFooterNoticeList', target: '.notice_inner', slide: '.notice_area', item: 'li', auto: false, delay: 2000
+		//    , cinemaID: CINEMAID
+		//});
+
+	    //설정위치 이동 $('.ad_pic').show();    // 좌측 광고(티켓JS에서 숨김처리되어 있어 추가)
+	} catch (e) {
+		//CheckException(e, "ready", NOW_MENU_TYPE);					//오류 발생 처리
+	}
+
+});
+
+
